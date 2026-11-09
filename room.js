@@ -150,53 +150,146 @@ async function buildRoom() {
   box(table,3.5,.23,.12,0,1.08,.99,darkWood);
   box(table,3.5,.23,.12,0,1.08,-.99,darkWood);
   contactShadow(world,3.7,.06,1.05,5,3.7);
-  const album=new THREE.Group();album.position.set(-.17,1.43,.12);album.rotation.y=.12;table.add(album);
-  const cover=mat('#414c3d');
-  [-1,1].forEach(s=>{
-    const c=box(album,1.26,.06,1.82,s*.66,0,0,cover);c.rotation.z=-s*.025;
-    box(album,1.2,.07,1.73,s*.65,.055,0,paper);
-    for(let k=0;k<4;k++)box(album,1.2,.005,1.71,s*.65,.065+k*.012,0,mat(k%2?'#c4b798':'#d8c9a9'),false);
-  });
-  box(album,.08,.12,1.78,0,.03,0,cover);
-  const pageCanvases=[];
-  const photoImages=[];
-  function drawPage(ctx,index){
+  // The album stays a real object in the room through every interaction.
+  const album=new THREE.Group();table.add(album);
+  const albumClosedPosition=new THREE.Vector3(-.68,1.43,.12);
+  const albumOpenPosition=new THREE.Vector3(.20,2.05,.80);
+  album.position.copy(albumClosedPosition);album.rotation.y=.12;
+  const bookCover=mat('#3d4939');
+  box(album,1.36,.06,1.88,.67,0,0,bookCover);
+  const rightStack=box(album,1.27,.13,1.77,.66,.095,0,paper);
+  for(let k=0;k<5;k++)box(album,1.27,.004,1.77,.66,.045+k*.022,0,mat(k%2?'#b8aa8b':'#ddd0b2'),false);
+  box(album,.09,.22,1.88,0,.10,0,bookCover);
+  const frontHinge=new THREE.Group();frontHinge.position.set(0,.23,0);album.add(frontHinge);
+  const frontCover=box(frontHinge,1.36,.055,1.88,.67,0,0,bookCover);
+  const photoCoverMat=new THREE.MeshLambertMaterial({color:'#ffffff'});
+  const coverPhoto=new THREE.Mesh(new THREE.PlaneGeometry(1.24,1.75),photoCoverMat);
+  coverPhoto.rotation.x=-Math.PI/2;coverPhoto.position.set(.67,.030,0);frontHinge.add(coverPhoto);
+  loadTexture('assets/album-cover.jpg').then(t=>{photoCoverMat.map=t;photoCoverMat.needsUpdate=true;});
+  const pageCanvases=[],photoImages=[];
+  let spread=0;
+  const spreads=[
+    {photos:[[0,2],[1,3]],notes:['август. ещё один день.','туда, где было тихо']},
+    {photos:[[2,3],[0,1]],notes:['свернуть с дороги','остаться ещё немного']},
+    {photos:[[1,0],[3,2]],notes:['всё это было с нами','и будет что вспомнить']}
+  ];
+  function drawPage(ctx,index,spreadIndex=spread){
     const w=1024,h=1280;ctx.fillStyle='#d3c6a6';ctx.fillRect(0,0,w,h);
-    for(let n=0;n<13000;n++){ctx.fillStyle=random()>.5?'#fff2':'#40341d0a';ctx.fillRect(random()*w,random()*h,1,1);}
-    const pagePhotos=index===0?[0,2]:[1,3];
-    pagePhotos.forEach((p,j)=>{
-      const img=photoImages[p];const x=j?130:90,y=j?695:145,pw=j?760:840,ph=j?390:490;
+    for(let n=0;n<5000;n++){ctx.fillStyle=n%2?'#fff2':'#40341d0a';ctx.fillRect((n*127.7)%w,(n*79.1)%h,1,1);}
+    const info=spreads[spreadIndex];
+    info.photos[index].forEach((p,j)=>{
+      const img=photoImages[p],x=j?130:90,y=j?695:145,pw=j?760:840,ph=j?390:490;
       ctx.save();ctx.translate(x+pw/2,y+ph/2);ctx.rotate((index?1:-1)*(j?-.025:.018));
       ctx.fillStyle='#191c15';ctx.fillRect(-pw/2-12,-ph/2-12,pw+24,ph+24);
-      if(img){
-        const a=img.width/img.height,ratio=pw/ph;let sw=img.width,sh=img.height;
-        if(a>ratio)sw=sh*ratio;else sh=sw/ratio;
-        ctx.drawImage(img,(img.width-sw)/2,(img.height-sh)/2,sw,sh,-pw/2,-ph/2,pw,ph);
-      }else{ctx.fillStyle=['#849379','#819992','#5b7151','#91815b'][p];ctx.fillRect(-pw/2,-ph/2,pw,ph);}
-      // Small paper corners hold the prints on the album page.
-      ctx.fillStyle='#ede0b9';const a=24;
-      [[-pw/2-12,-ph/2-12,1,1],[pw/2+12,-ph/2-12,-1,1],[-pw/2-12,ph/2+12,1,-1],[pw/2+12,ph/2+12,-1,-1]].forEach(([x,y,sx,sy])=>{ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+a*sx,y);ctx.lineTo(x,y+a*sy);ctx.fill();});ctx.restore();
+      if(img){const ratio=pw/ph;let sw=img.width,sh=img.height;if(sw/sh>ratio)sw=sh*ratio;else sh=sw/ratio;ctx.drawImage(img,(img.width-sw)/2,(img.height-sh)/2,sw,sh,-pw/2,-ph/2,pw,ph);}
+      else{ctx.fillStyle='#849379';ctx.fillRect(-pw/2,-ph/2,pw,ph);}
+      ctx.fillStyle='#ede0b9';
+      [[-pw/2-12,-ph/2-12,1,1],[pw/2+12,-ph/2-12,-1,1],[-pw/2-12,ph/2+12,1,-1],[pw/2+12,ph/2+12,-1,-1]].forEach(([x,y,sx,sy])=>{ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+24*sx,y);ctx.lineTo(x,y+24*sy);ctx.fill();});ctx.restore();
     });
-    ctx.fillStyle='#6b6149';ctx.font='italic 28px Georgia';ctx.fillText(index?'туда, где было тихо':'август. ещё один день.',115,1175);
-    ctx.font='19px monospace';ctx.fillText(index?'02':'01',890,1220);
+    ctx.fillStyle='#6b6149';ctx.font='italic 28px Georgia';ctx.fillText(info.notes[index],115,1175);
+    ctx.font='19px monospace';ctx.fillText(String(spreadIndex*2+index+1).padStart(2,'0'),890,1220);
     const g=ctx.createLinearGradient(index?0:w,0,index?70:w-70,0);g.addColorStop(0,'#22190d66');g.addColorStop(1,'#22190d00');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
   }
-  for(let side=0;side<2;side++){
-    const c=document.createElement('canvas');c.width=1024;c.height=1280;const ctx=c.getContext('2d');drawPage(ctx,side);
-    const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.magFilter=THREE.NearestFilter;
-    const geometry=new THREE.BufferGeometry();const vertices=[],uvs=[],indices=[];const segments=24;
-    for(let v=0;v<=1;v++)for(let u=0;u<=segments;u++){
-      const t=u/segments,x=side===0?-1.26+t*1.24:.02+t*1.24;
-      const y=.105+.09*Math.exp(-Math.abs(x)*7)+.025*Math.pow(Math.abs(x)/1.26,4);
-      vertices.push(x,y,(v-.5)*1.73);uvs.push(t,1-v);
+  function pageTexture(index){
+    const c=document.createElement('canvas');c.width=1024;c.height=1280;const ctx=c.getContext('2d');drawPage(ctx,index);
+    const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.magFilter=THREE.NearestFilter;return {ctx,tex};
+  }
+  function pageGeometry(side){
+    const g=new THREE.BufferGeometry(),v=[],uv=[],ind=[],n=28;
+    for(let z=0;z<=1;z++)for(let i=0;i<=n;i++){
+      const t=i/n,x=side===0?-1.29+t*1.27:.02+t*1.27;
+      v.push(x,.185+.065*Math.exp(-Math.abs(x)*8)+.012*Math.pow(Math.abs(x)/1.29,4),(z-.5)*1.77);uv.push(t,1-z);
     }
-    for(let u=0;u<segments;u++){const a=u,b=u+1,c=u+segments+1,d=u+segments+2;indices.push(a,c,b,b,c,d);}
-    geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));geometry.setIndex(indices);geometry.computeVertexNormals();
-    const mesh=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({map:tex,side:THREE.DoubleSide}));mesh.receiveShadow=true;album.add(mesh);pageCanvases.push({ctx,tex});
+    for(let i=0;i<n;i++){const a=i,b=i+1,c=i+n+1,d=i+n+2;ind.push(a,c,b,b,c,d);}
+    g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(ind);g.computeVertexNormals();return g;
   }
+  const pageMeshes=[];
+  for(let i=0;i<2;i++){
+    const p=pageTexture(i);pageCanvases.push(p);
+    const mesh=new THREE.Mesh(pageGeometry(i),new THREE.MeshLambertMaterial({map:p.tex,side:THREE.DoubleSide}));mesh.receiveShadow=true;mesh.userData.pageSide=i;album.add(mesh);pageMeshes.push(mesh);
+  }
+  pageMeshes[0].visible=false;
   for(let i=0;i<4;i++){
-    const promise=new Promise(resolve=>{const img=new Image();img.onload=()=>{photoImages[i]=img;pageCanvases.forEach((p,j)=>{drawPage(p.ctx,j);p.tex.needsUpdate=true;});loadedCount++;document.querySelector('.loading-line i').style.width=Math.min(100,loadedCount/13*100)+'%';resolve();};img.onerror=()=>resolve();img.src='assets/photo-'+i+'.jpg';});assetPromises.push(promise);
+    const promise=new Promise(resolve=>{const img=new Image();img.onload=()=>{photoImages[i]=img;pageCanvases.forEach((p,j)=>{drawPage(p.ctx,j);p.tex.needsUpdate=true;});resolve();};img.onerror=()=>resolve();img.src='assets/photo-'+i+'.jpg';});assetPromises.push(promise);
   }
+  const flipFront=pageTexture(1),flipBack=pageTexture(0);
+  const turningPage=new THREE.Group();album.add(turningPage);turningPage.visible=false;
+  const turningFront=new THREE.Mesh(pageGeometry(1),new THREE.MeshLambertMaterial({map:flipFront.tex,side:THREE.FrontSide}));
+  const turningBack=new THREE.Mesh(pageGeometry(1),new THREE.MeshLambertMaterial({map:flipBack.tex,side:THREE.BackSide}));
+  turningPage.add(turningFront,turningBack);
+  const albumHit=new THREE.Mesh(new THREE.BoxGeometry(1.4,.4,1.94),new THREE.MeshBasicMaterial({visible:false}));albumHit.position.set(.67,.14,0);album.add(albumHit);
+  const glowTex=textureCanvas(128,128,(ctx,w,h)=>{const g=ctx.createRadialGradient(w/2,h/2,5,w/2,h/2,w/2);g.addColorStop(0,'#ffe1a0aa');g.addColorStop(.5,'#ffdc8060');g.addColorStop(1,'#ffdc8000');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);});
+  const glow=new THREE.Mesh(new THREE.PlaneGeometry(2.5,3.0),new THREE.MeshBasicMaterial({map:glowTex,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));
+  glow.rotation.x=-Math.PI/2;glow.position.set(.67,-.025,0);album.add(glow);
+  let albumState='closed',albumAnimation=null,pageAnimation=null,albumHovered=false,glowAmount=0;
+  let albumOpenAmount=0;
+  const albumHud=document.createElement('div');albumHud.id='album-hud';albumHud.hidden=true;
+  albumHud.innerHTML='<button id="page-prev" aria-label="Предыдущий разворот">←</button><span id="page-count" aria-live="polite"></span><button id="page-next" aria-label="Следующий разворот">→</button><button id="album-close" aria-label="Закрыть альбом">×</button>';
+  document.querySelector('#room').append(albumHud);
+  const albumAccess=document.createElement('button');albumAccess.id='album-access';albumAccess.className='sr-only';albumAccess.textContent='Открыть фотоальбом';albumAccess.hidden=true;document.querySelector('#room').append(albumAccess);
+  function refreshAlbumHud(){
+    document.querySelector('#page-count').textContent=(spread*2+1)+'–'+(spread*2+2)+' / '+spreads.length*2;
+    document.querySelector('#page-prev').disabled=spread===0||albumState!=='open';
+    document.querySelector('#page-next').disabled=spread===spreads.length-1||albumState!=='open';
+    document.querySelector('#album-close').disabled=albumState!=='open';
+    albumHud.hidden=!['open','turning'].includes(albumState);
+  }
+  function poseAlbum(amount){
+    albumOpenAmount=amount;
+    album.position.lerpVectors(albumClosedPosition,albumOpenPosition,amount);
+    album.rotation.set(.52*amount,.12,0);
+    frontHinge.rotation.z=Math.PI*amount;
+    pageMeshes[0].visible=amount>.76;
+    // The inside page sits above the fully opened front cover.
+    pageMeshes[0].position.y=.08;
+  }
+  function openAlbum(){
+    if(!ready||flight||activeScene!==1||albumState!=='closed')return;
+    albumState='opening';albumHovered=false;
+    albumAnimation={start:performance.now(),duration:reducedMotion.matches?1:1500,from:0,to:1};
+    document.querySelector('#room').dataset.album='opening';setNavigation(false);
+  }
+  function closeAlbum(){
+    if(albumState!=='open')return;
+    albumState='closing';refreshAlbumHud();
+    albumAnimation={start:performance.now(),duration:reducedMotion.matches?1:1100,from:1,to:0};
+    document.querySelector('#room').dataset.album='closing';setNavigation(false);
+  }
+  function turnPage(direction){
+    const dest=spread+direction;if(albumState!=='open'||dest<0||dest>=spreads.length)return;
+    albumState='turning';pageAnimation={start:performance.now(),duration:reducedMotion.matches?1:850,direction,dest,swapped:false};
+    drawPage(flipFront.ctx,1,direction>0?spread:dest);flipFront.tex.needsUpdate=true;
+    drawPage(flipBack.ctx,0,direction>0?dest:spread);flipBack.tex.needsUpdate=true;
+    turningPage.visible=true;turningPage.rotation.z=direction>0?0:Math.PI;
+    refreshAlbumHud();
+  }
+  albumAccess.onclick=openAlbum;
+  document.querySelector('#album-close').onclick=closeAlbum;
+  document.querySelector('#page-prev').onclick=()=>turnPage(-1);
+  document.querySelector('#page-next').onclick=()=>turnPage(1);
+  function animateAlbum(now){
+    if(albumAnimation){
+      const t=Math.min(1,(now-albumAnimation.start)/albumAnimation.duration),ease=t*t*(3-2*t);
+      const amount=THREE.MathUtils.lerp(albumAnimation.from,albumAnimation.to,ease);
+      poseAlbum(amount);
+      album.position.y+=Math.sin(Math.PI*t)*.22;
+      if(t===1){albumState=albumAnimation.to===1?'open':'closed';albumAnimation=null;poseAlbum(albumState==='open'?1:0);document.querySelector('#room').dataset.album=albumState;refreshAlbumHud();setNavigation(false);}
+    }
+    if(pageAnimation){
+      const a=pageAnimation,t=Math.min(1,(now-a.start)/a.duration),ease=t*t*(3-2*t);
+      turningPage.rotation.z=(a.direction>0?ease:1-ease)*Math.PI;
+      turningPage.position.y=.05+Math.sin(t*Math.PI)*.12;
+      if(t>.5&&!a.swapped){a.swapped=true;spread=a.dest;pageCanvases.forEach((p,j)=>{drawPage(p.ctx,j);p.tex.needsUpdate=true;});}
+      if(t===1){turningPage.visible=false;pageAnimation=null;albumState='open';refreshAlbumHud();}
+    }
+    const wanted=albumHovered&&albumState==='closed'?1:0;
+    glowAmount+=(wanted-glowAmount)*.12;glow.material.opacity=glowAmount*.75;
+    bookCover.emissive.set('#d9af54');bookCover.emissiveIntensity=glowAmount*.22;
+    photoCoverMat.emissive.set('#ddbb75');photoCoverMat.emissiveIntensity=glowAmount*.17;
+    if(albumState==='open'&&!reducedMotion.matches)album.position.y=albumOpenPosition.y+Math.sin(now*.0011)*.014;
+  }
+  poseAlbum(0);refreshAlbumHud();
+
   // A desk lamp anchors the second viewpoint and pools warm light on paper.
   cylinder(table,.25,.30,.055,1.25,1.44,-.63,brass);
   cylinder(table,.025,.025,.87,1.25,1.88,-.63,brass);
@@ -253,21 +346,21 @@ async function buildRoom() {
   postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),post));
   function resize(){
     renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
-    const height=Math.min(600,innerHeight),width=Math.round(height*camera.aspect);target.setSize(width,height);uniforms.resolution.value.set(width,height);
+    const height=Math.min(360,Math.floor(innerHeight*.65)),width=Math.round(height*camera.aspect);target.setSize(width,height);uniforms.resolution.value.set(width,height);
     cameraStops();if(!flight){camera.position.copy(positions[activeScene]);viewTarget.copy(targets[activeScene]);camera.lookAt(viewTarget);}
   }
   addEventListener('resize',()=>{if(flight){flight=null;setNavigation(false);}resize();});resize();
-  function setNavigation(moving){prev.disabled=next.disabled=moving||!ready;document.querySelector('#room').setAttribute('aria-busy',String(moving));}
+  function setNavigation(moving){prev.disabled=next.disabled=moving||!ready||(activeScene===1&&albumState!=='closed');document.querySelector('#room').setAttribute('aria-busy',String(moving));}
   function updateCaption(){
     document.querySelector('#scene-title').textContent=activeScene===0?'Шкаф с вещами':'Фотоальбом';
     document.querySelector('#scene-subtitle').textContent=activeScene===0?'У каждой вещи — своя история':'Места, в которые можно вернуться';
     document.querySelector('#scene-number').textContent=activeScene===0?'01 / 02':'02 / 02';
     document.querySelector('#scene-kind').textContent=activeScene===0?'ЛИЧНЫЙ АРХИВ':'НА ПАМЯТЬ';
     document.querySelectorAll('.scene-dots i').forEach((el,i)=>el.classList.toggle('active',i===activeScene));
-    document.querySelector('#object-buttons').hidden=activeScene!==0;
+    document.querySelector('#object-buttons').hidden=activeScene!==0;albumAccess.hidden=activeScene!==1;
   }
   function switchScene(){
-    if(flight||!ready||document.querySelector('#detail').open)return;
+    if(flight||!ready||document.querySelector('#detail').open||albumState!=='closed')return;
     const from=camera.position.clone(),fromTarget=viewTarget.clone();activeScene=1-activeScene;updateCaption();
     if(reducedMotion.matches){camera.position.copy(positions[activeScene]);viewTarget.copy(targets[activeScene]);camera.lookAt(viewTarget);return;}
     const to=positions[activeScene].clone();
@@ -283,13 +376,14 @@ async function buildRoom() {
     if(sprite){sprite.material.color.set('#fff8e5');if(sprite.userData.baseScale)sprite.scale.copy(sprite.userData.baseScale).multiplyScalar(1.035);}
   }
   function pick(e){
-    if(!ready||flight||activeScene!==0)return null;
+    if(!ready||flight)return null;
     const r=canvas.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,camera);
+    if(activeScene===1){const candidates=albumState==='closed'?[albumHit]:albumState==='open'?pageMeshes:[];return raycaster.intersectObjects(candidates).find(hit=>hit.object.visible)?.object||null;}
     return raycaster.intersectObjects(interactives).find(hit=>hit.object.visible)?.object||null;
   }
-  canvas.addEventListener('pointermove',e=>setHover(pick(e)));
-  canvas.addEventListener('pointerleave',()=>setHover(null));
-  canvas.addEventListener('click',e=>{const hit=pick(e);if(hit)openItem(hit.userData.item);});
+  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;}else{albumHovered=hit===albumHit;canvas.style.cursor=hit?'pointer':'default';}});
+  canvas.addEventListener('pointerleave',()=>{setHover(null);albumHovered=false;canvas.style.cursor='default';});
+  canvas.addEventListener('click',e=>{const hit=pick(e);if(!hit)return;if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open')turnPage(hit.userData.pageSide===0?-1:1);});
   const dialog=document.querySelector('#detail');
   function openItem(i){
     if(flight||activeScene!==0)return;
@@ -299,7 +393,7 @@ async function buildRoom() {
   }
   document.querySelector('.close').onclick=()=>dialog.close();
   dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}});
-  addEventListener('keydown',e=>{if(dialog.open)return;if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();switchScene();}});
+  addEventListener('keydown',e=>{if(dialog.open)return;if(e.key==='Escape'&&albumState==='open'){closeAlbum();return;}if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();if(albumState==='open')turnPage(e.key==='ArrowRight'?1:-1);else switchScene();}});
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();fail(new Error('WebGL context lost'));});
   function animate(now){
     if(flight){
@@ -307,6 +401,11 @@ async function buildRoom() {
       camera.position.copy(flight.curve.getPoint(eased));viewTarget.lerpVectors(flight.fromTarget,flight.toTarget,eased);camera.lookAt(viewTarget);
       if(t===1){flight=null;setNavigation(false);}
     }
+    if(!flight&&activeScene===0&&!reducedMotion.matches){
+      const t=now*.001;camera.position.copy(positions[0]);camera.position.x+=Math.sin(t*.38)*.035;camera.position.y+=Math.sin(t*.51)*.025;camera.position.z+=Math.sin(t*.22)*.035;
+      camera.lookAt(targets[0]);camera.rotation.z+=Math.sin(t*.075)*.012;
+    }
+    animateAlbum(now);
     uniforms.time.value=reducedMotion.matches?0:now*.001;
     renderer.setRenderTarget(target);renderer.render(scene,camera);renderer.setRenderTarget(null);renderer.render(postScene,postCamera);
   }

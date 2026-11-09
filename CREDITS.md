@@ -16,6 +16,8 @@ Transparent PNG photographs/cutouts from [PNGimg](https://pngimg.com/), licensed
 
 ## Album photographs
 
+The album cover uses the photograph supplied by the site owner for this project, resized for its cover texture.
+
 Demo landscape photographs from [Unsplash](https://unsplash.com/license). Downloaded and resized for the album page textures.
 
 - photo-0: https://images.unsplash.com/photo-1632335479115-1e3db2cdd262
