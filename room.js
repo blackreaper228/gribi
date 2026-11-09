@@ -420,9 +420,24 @@ async function buildRoom() {
     const portrait=innerWidth/innerHeight<.85,distance=portrait?3.1:2.65;
     return {position:point.clone().add(new THREE.Vector3(.16,.09,distance)),target:point.clone().add(new THREE.Vector3(portrait?0:.52,portrait?-.30:0,0))};
   }
-  function flyToItem(position,target,complete){
+  const poseCamera=new THREE.PerspectiveCamera();
+  function cameraQuaternion(position,target,roll=0){
+    poseCamera.position.copy(position);poseCamera.up.copy(camera.up);
+    poseCamera.lookAt(target);poseCamera.rotation.z+=roll;
+    return poseCamera.quaternion.clone();
+  }
+  function shelfCameraPose(now){
+    const position=positions[0].clone(),t=now*.001;
+    let roll=0;
+    if(!reducedMotion.matches){
+      position.x+=Math.sin(t*.38)*.035;position.y+=Math.sin(t*.51)*.025;
+      position.z+=Math.sin(t*.22)*.035;roll=Math.sin(t*.075)*.012;
+    }
+    return {position,quaternion:cameraQuaternion(position,targets[0],roll)};
+  }
+  function flyToItem(position,target,complete,followShelf=false){
     const from=camera.position.clone(),middle=from.clone().lerp(position,.5);middle.z+=.2;
-    flight={start:performance.now(),duration:reducedMotion.matches?1:1250,curve:new THREE.QuadraticBezierCurve3(from,middle,position),fromTarget:viewTarget.clone(),toTarget:target.clone(),complete};
+    flight={start:performance.now(),duration:reducedMotion.matches?1:1250,curve:new THREE.QuadraticBezierCurve3(from,middle,position),fromTarget:viewTarget.clone(),toTarget:target.clone(),fromQuaternion:camera.quaternion.clone(),toQuaternion:cameraQuaternion(position,target),endPosition:position.clone(),followShelf,complete};
     setNavigation(true);setHover(null);
   }
   function placeDescription(){
@@ -453,7 +468,7 @@ async function buildRoom() {
     if(!focusState||focusState.phase==='returning')return;
     descriptionPanel.classList.remove('visible');setTimeout(()=>{descriptionPanel.hidden=true;},460);
     focusState.phase='returning';
-    flyToItem(positions[0].clone(),targets[0].clone(),()=>{focusState=null;focusReturnElement?.focus?.({preventScroll:true});});
+    flyToItem(positions[0].clone(),targets[0].clone(),()=>{focusState=null;focusReturnElement?.focus?.({preventScroll:true});},true);
   }
   descriptionPanel.querySelector('button').onclick=returnToCabinet;
   addEventListener('keydown',e=>{
@@ -466,7 +481,17 @@ async function buildRoom() {
   function animate(now){
     if(flight){
       const t=Math.min(1,(now-flight.start)/flight.duration);const eased=t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-      camera.position.copy(flight.curve.getPoint(eased));viewTarget.lerpVectors(flight.fromTarget,flight.toTarget,eased);camera.lookAt(viewTarget);
+      camera.position.copy(flight.curve.getPoint(eased));
+      viewTarget.lerpVectors(flight.fromTarget,flight.toTarget,eased);
+      if(flight.fromQuaternion){
+        let destinationQuaternion=flight.toQuaternion;
+        if(flight.followShelf){
+          const shelfPose=shelfCameraPose(now);
+          camera.position.addScaledVector(shelfPose.position.sub(flight.endPosition),eased);
+          destinationQuaternion=shelfPose.quaternion;
+        }
+        camera.quaternion.slerpQuaternions(flight.fromQuaternion,destinationQuaternion,eased);
+      }else camera.lookAt(viewTarget);
       if(t===1){const complete=flight.complete;flight=null;complete?.();setNavigation(false);}
     }
     if(!flight&&!focusState&&activeScene===0&&!reducedMotion.matches){
