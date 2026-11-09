@@ -31,7 +31,7 @@ async function buildRoom() {
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   const interactives = [];
-  let activeScene=0, flight=null, hovered=null, ready=false;
+  let activeScene=0, flight=null, hovered=null, ready=false, focusState=null;
   const viewTarget = new THREE.Vector3();
   const prev=document.querySelector('#scene-prev'), next=document.querySelector('#scene-next');
   const positions = [new THREE.Vector3(-2.15,2.9,9.4),new THREE.Vector3(4.45,4.65,5.25)];
@@ -190,15 +190,15 @@ async function buildRoom() {
     ctx.font='19px monospace';ctx.fillText(String(spreadIndex*2+index+1).padStart(2,'0'),890,1220);
     const g=ctx.createLinearGradient(index?0:w,0,index?70:w-70,0);g.addColorStop(0,'#22190d66');g.addColorStop(1,'#22190d00');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
   }
-  function pageTexture(index){
-    const c=document.createElement('canvas');c.width=1024;c.height=1280;const ctx=c.getContext('2d');drawPage(ctx,index);
+  function pageTexture(index,spreadIndex=spread){
+    const c=document.createElement('canvas');c.width=1024;c.height=1280;const ctx=c.getContext('2d');drawPage(ctx,index,spreadIndex);
     const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.magFilter=THREE.NearestFilter;return {ctx,tex};
   }
   function pageGeometry(side){
     const g=new THREE.BufferGeometry(),v=[],uv=[],ind=[],n=28;
     for(let z=0;z<=1;z++)for(let i=0;i<=n;i++){
       const t=i/n,x=side===0?-1.29+t*1.27:.02+t*1.27;
-      v.push(x,.185+.065*Math.exp(-Math.abs(x)*8)+.012*Math.pow(Math.abs(x)/1.29,4),(z-.5)*1.77);uv.push(t,1-z);
+      v.push(x,.185+.025*Math.exp(-Math.abs(x)*8),(z-.5)*1.77);uv.push(t,1-z);
     }
     for(let i=0;i<n;i++){const a=i,b=i+1,c=i+n+1,d=i+n+2;ind.push(a,c,b,b,c,d);}
     g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(ind);g.computeVertexNormals();return g;
@@ -212,16 +212,33 @@ async function buildRoom() {
   for(let i=0;i<4;i++){
     const promise=new Promise(resolve=>{const img=new Image();img.onload=()=>{photoImages[i]=img;pageCanvases.forEach((p,j)=>{drawPage(p.ctx,j);p.tex.needsUpdate=true;});resolve();};img.onerror=()=>resolve();img.src='assets/photo-'+i+'.jpg';});assetPromises.push(promise);
   }
-  const flipFront=pageTexture(1),flipBack=pageTexture(0);
+  // Cache every spread once, after all photographs have decoded.
+  let pageCache=[];
+  function showSpread(index){
+    pageMeshes.forEach((mesh,side)=>{mesh.material.map=pageCache[index][side].tex;});
+  }
   const turningPage=new THREE.Group();album.add(turningPage);turningPage.visible=false;
-  const turningFront=new THREE.Mesh(pageGeometry(1),new THREE.MeshLambertMaterial({map:flipFront.tex,side:THREE.FrontSide}));
-  const turningBack=new THREE.Mesh(pageGeometry(1),new THREE.MeshLambertMaterial({map:flipBack.tex,side:THREE.BackSide}));
+  const turnGeometry=new THREE.PlaneGeometry(1.27,1.77,28,1);
+  const turnBackGeometry=turnGeometry.clone();
+  const turnUV=turnGeometry.attributes.uv,backUV=turnBackGeometry.attributes.uv;
+  for(let i=0;i<backUV.count;i++)backUV.setXY(i,1-turnUV.getX(i),turnUV.getY(i));
+  const turningFront=new THREE.Mesh(turnGeometry,new THREE.MeshLambertMaterial({side:THREE.FrontSide}));
+  const turningBack=new THREE.Mesh(turnBackGeometry,new THREE.MeshLambertMaterial({side:THREE.BackSide}));
   turningPage.add(turningFront,turningBack);
+  function poseTurningSheet(angle){
+    // The hinge is above BOTH resting pages. Rotation never sends a sheet
+    // below the page stack; a small arch adds clearance during the turn.
+    const c=Math.cos(angle),sn=Math.sin(angle);
+    for(let i=0;i<turnUV.count;i++){
+      const u=turnUV.getX(i),v=turnUV.getY(i),r=.02+u*1.27;
+      const x=r*c,y=.190+.025*Math.exp(-r*8)+r*sn+.07*Math.sin(Math.PI*u)*sn,z=(.5-v)*1.77;
+      turnGeometry.attributes.position.setXYZ(i,x,y,z);
+      turnBackGeometry.attributes.position.setXYZ(i,x,y,z);
+    }
+    for(const g of [turnGeometry,turnBackGeometry]){g.attributes.position.needsUpdate=true;g.computeVertexNormals();g.computeBoundingSphere();}
+  }
   const albumHit=new THREE.Mesh(new THREE.BoxGeometry(1.4,.4,1.94),new THREE.MeshBasicMaterial({visible:false}));albumHit.position.set(.67,.14,0);album.add(albumHit);
-  const glowTex=textureCanvas(128,128,(ctx,w,h)=>{const g=ctx.createRadialGradient(w/2,h/2,5,w/2,h/2,w/2);g.addColorStop(0,'#ffe1a0aa');g.addColorStop(.5,'#ffdc8060');g.addColorStop(1,'#ffdc8000');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);});
-  const glow=new THREE.Mesh(new THREE.PlaneGeometry(2.5,3.0),new THREE.MeshBasicMaterial({map:glowTex,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));
-  glow.rotation.x=-Math.PI/2;glow.position.set(.67,-.025,0);album.add(glow);
-  let albumState='closed',albumAnimation=null,pageAnimation=null,albumHovered=false,glowAmount=0;
+  let albumState='closed',albumAnimation=null,pageAnimation=null,albumHovered=false,hoverLift=0;
   let albumOpenAmount=0;
   const albumHud=document.createElement('div');albumHud.id='album-hud';albumHud.hidden=true;
   albumHud.innerHTML='<button id="page-prev" aria-label="Предыдущий разворот">←</button><span id="page-count" aria-live="polite"></span><button id="page-next" aria-label="Следующий разворот">→</button><button id="album-close" aria-label="Закрыть альбом">×</button>';
@@ -239,9 +256,10 @@ async function buildRoom() {
     album.position.lerpVectors(albumClosedPosition,albumOpenPosition,amount);
     album.rotation.set(.52*amount,.12,0);
     frontHinge.rotation.z=Math.PI*amount;
+    frontHinge.position.y=.23-.10*amount;
     pageMeshes[0].visible=amount>.76;
     // The inside page sits above the fully opened front cover.
-    pageMeshes[0].position.y=.08;
+    pageMeshes[0].position.y=0;
   }
   function openAlbum(){
     if(!ready||flight||activeScene!==1||albumState!=='closed')return;
@@ -256,11 +274,19 @@ async function buildRoom() {
     document.querySelector('#room').dataset.album='closing';setNavigation(false);
   }
   function turnPage(direction){
-    const dest=spread+direction;if(albumState!=='open'||dest<0||dest>=spreads.length)return;
-    albumState='turning';pageAnimation={start:performance.now(),duration:reducedMotion.matches?1:850,direction,dest,swapped:false};
-    drawPage(flipFront.ctx,1,direction>0?spread:dest);flipFront.tex.needsUpdate=true;
-    drawPage(flipBack.ctx,0,direction>0?dest:spread);flipBack.tex.needsUpdate=true;
-    turningPage.visible=true;turningPage.rotation.z=direction>0?0:Math.PI;
+    const dest=spread+direction;if(albumState!=='open'||dest<0||dest>=spreads.length||!pageCache.length)return;
+    albumState='turning';
+    pageAnimation={start:performance.now(),duration:reducedMotion.matches?1:1100,direction,dest};
+    if(direction>0){
+      turningFront.material.map=pageCache[spread][1].tex;
+      turningBack.material.map=pageCache[dest][0].tex;
+      pageMeshes[1].material.map=pageCache[dest][1].tex;
+    }else{
+      turningFront.material.map=pageCache[dest][1].tex;
+      turningBack.material.map=pageCache[spread][0].tex;
+      pageMeshes[0].material.map=pageCache[dest][0].tex;
+    }
+    poseTurningSheet(direction>0?0:Math.PI);turningPage.visible=true;
     refreshAlbumHud();
   }
   albumAccess.onclick=openAlbum;
@@ -277,15 +303,15 @@ async function buildRoom() {
     }
     if(pageAnimation){
       const a=pageAnimation,t=Math.min(1,(now-a.start)/a.duration),ease=t*t*(3-2*t);
-      turningPage.rotation.z=(a.direction>0?ease:1-ease)*Math.PI;
-      turningPage.position.y=.05+Math.sin(t*Math.PI)*.12;
-      if(t>.5&&!a.swapped){a.swapped=true;spread=a.dest;pageCanvases.forEach((p,j)=>{drawPage(p.ctx,j);p.tex.needsUpdate=true;});}
-      if(t===1){turningPage.visible=false;pageAnimation=null;albumState='open';refreshAlbumHud();}
+      poseTurningSheet((a.direction>0?ease:1-ease)*Math.PI);
+      if(t===1){spread=a.dest;showSpread(spread);turningPage.visible=false;pageAnimation=null;albumState='open';refreshAlbumHud();}
     }
     const wanted=albumHovered&&albumState==='closed'?1:0;
-    glowAmount+=(wanted-glowAmount)*.12;glow.material.opacity=glowAmount*.75;
-    bookCover.emissive.set('#d9af54');bookCover.emissiveIntensity=glowAmount*.22;
-    photoCoverMat.emissive.set('#ddbb75');photoCoverMat.emissiveIntensity=glowAmount*.17;
+    hoverLift+=(wanted-hoverLift)*.10;
+    if(albumState==='closed'){
+      album.position.copy(albumClosedPosition);album.position.y+=hoverLift*.025;
+      album.rotation.set(0,.12,reducedMotion.matches?0:Math.sin(now*.0018)*.018*hoverLift);
+    }
     if(albumState==='open'&&!reducedMotion.matches)album.position.y=albumOpenPosition.y+Math.sin(now*.0011)*.014;
   }
   poseAlbum(0);refreshAlbumHud();
@@ -347,10 +373,10 @@ async function buildRoom() {
   function resize(){
     renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
     const height=Math.min(360,Math.floor(innerHeight*.65)),width=Math.round(height*camera.aspect);target.setSize(width,height);uniforms.resolution.value.set(width,height);
-    cameraStops();if(!flight){camera.position.copy(positions[activeScene]);viewTarget.copy(targets[activeScene]);camera.lookAt(viewTarget);}
+    cameraStops();if(!flight&&!focusState){camera.position.copy(positions[activeScene]);viewTarget.copy(targets[activeScene]);camera.lookAt(viewTarget);}
   }
-  addEventListener('resize',()=>{if(flight){flight=null;setNavigation(false);}resize();});resize();
-  function setNavigation(moving){prev.disabled=next.disabled=moving||!ready||(activeScene===1&&albumState!=='closed');document.querySelector('#room').setAttribute('aria-busy',String(moving));}
+  addEventListener('resize',()=>{if(flight){const complete=flight.complete;flight=null;complete?.();setNavigation(false);}resize();if(focusState?.phase==='open'){const pose=itemCameraPose(focusState.point);camera.position.copy(pose.position);viewTarget.copy(pose.target);camera.lookAt(viewTarget);placeDescription();}});resize();
+  function setNavigation(moving){prev.disabled=next.disabled=moving||!ready||!!focusState||(activeScene===1&&albumState!=='closed');document.querySelector('#room').setAttribute('aria-busy',String(moving));}
   function updateCaption(){
     document.querySelector('#scene-title').textContent=activeScene===0?'Шкаф с вещами':'Фотоальбом';
     document.querySelector('#scene-subtitle').textContent=activeScene===0?'У каждой вещи — своя история':'Места, в которые можно вернуться';
@@ -360,7 +386,7 @@ async function buildRoom() {
     document.querySelector('#object-buttons').hidden=activeScene!==0;albumAccess.hidden=activeScene!==1;
   }
   function switchScene(){
-    if(flight||!ready||document.querySelector('#detail').open||albumState!=='closed')return;
+    if(flight||!ready||focusState||albumState!=='closed')return;
     const from=camera.position.clone(),fromTarget=viewTarget.clone();activeScene=1-activeScene;updateCaption();
     if(reducedMotion.matches){camera.position.copy(positions[activeScene]);viewTarget.copy(targets[activeScene]);camera.lookAt(viewTarget);return;}
     const to=positions[activeScene].clone();
@@ -384,32 +410,78 @@ async function buildRoom() {
   canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;}else{albumHovered=hit===albumHit;canvas.style.cursor=hit?'pointer':'default';}});
   canvas.addEventListener('pointerleave',()=>{setHover(null);albumHovered=false;canvas.style.cursor='default';});
   canvas.addEventListener('click',e=>{const hit=pick(e);if(!hit)return;if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open')turnPage(hit.userData.pageSide===0?-1:1);});
-  const dialog=document.querySelector('#detail');
-  function openItem(i){
-    if(flight||activeScene!==0)return;
-    const item=items[i];document.querySelector('#detail-title').textContent=item.title;document.querySelector('#detail-description').textContent=item.description;
-    document.querySelector('#detail-date').textContent=item.date;const img=document.querySelector('#detail-photo');img.src=item.photo;img.alt=item.title;
-    dialog.showModal();setHover(null);
+  const descriptionPanel=document.createElement('aside');
+  descriptionPanel.id='item-description';descriptionPanel.hidden=true;
+  descriptionPanel.setAttribute('role','dialog');descriptionPanel.setAttribute('aria-labelledby','item-description-title');
+  descriptionPanel.innerHTML='<button class="focus-close" aria-label="Вернуться к шкафу">×</button><time></time><h2 id="item-description-title"></h2><p></p>';
+  document.querySelector('#room').append(descriptionPanel);
+  let focusReturnElement=null;
+  function itemCameraPose(point){
+    const portrait=innerWidth/innerHeight<.85,distance=portrait?3.1:2.65;
+    return {position:point.clone().add(new THREE.Vector3(.16,.09,distance)),target:point.clone().add(new THREE.Vector3(portrait?0:.52,portrait?-.30:0,0))};
   }
-  document.querySelector('.close').onclick=()=>dialog.close();
-  dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}});
-  addEventListener('keydown',e=>{if(dialog.open)return;if(e.key==='Escape'&&albumState==='open'){closeAlbum();return;}if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();if(albumState==='open')turnPage(e.key==='ArrowRight'?1:-1);else switchScene();}});
+  function flyToItem(position,target,complete){
+    const from=camera.position.clone(),middle=from.clone().lerp(position,.5);middle.z+=.2;
+    flight={start:performance.now(),duration:reducedMotion.matches?1:1250,curve:new THREE.QuadraticBezierCurve3(from,middle,position),fromTarget:viewTarget.clone(),toTarget:target.clone(),complete};
+    setNavigation(true);setHover(null);
+  }
+  function placeDescription(){
+    if(!focusState)return;
+    if(innerWidth/innerHeight<.85){descriptionPanel.style.left='20px';descriptionPanel.style.right='20px';descriptionPanel.style.top='auto';descriptionPanel.style.bottom='116px';return;}
+    const point=focusState.point.clone().project(camera),x=(point.x*.5+.5)*innerWidth,y=(-point.y*.5+.5)*innerHeight;
+    const rect=descriptionPanel.getBoundingClientRect();
+    descriptionPanel.style.right='auto';descriptionPanel.style.bottom='auto';
+    descriptionPanel.style.left=Math.max(20,Math.min(innerWidth-rect.width-26,x+100))+'px';
+    descriptionPanel.style.top=Math.max(90,Math.min(innerHeight-rect.height-125,y-rect.height*.45))+'px';
+  }
+  function openItem(i){
+    if(!ready||flight||focusState||activeScene!==0)return;
+    const item=items[i],sprite=sprites[i],point=sprite.getWorldPosition(new THREE.Vector3());point.y+=sprite.userData.height*.5;
+    focusReturnElement=document.activeElement;
+    focusState={index:i,point,phase:'zooming'};
+    descriptionPanel.querySelector('time').textContent=item.date;
+    descriptionPanel.querySelector('h2').textContent=item.title;
+    descriptionPanel.querySelector('p').textContent=item.description;
+    const pose=itemCameraPose(point);
+    flyToItem(pose.position,pose.target,()=>{
+      focusState.phase='open';descriptionPanel.hidden=false;placeDescription();
+      requestAnimationFrame(()=>descriptionPanel.classList.add('visible'));
+      descriptionPanel.querySelector('button').focus({preventScroll:true});
+    });
+  }
+  function returnToCabinet(){
+    if(!focusState||focusState.phase==='returning')return;
+    descriptionPanel.classList.remove('visible');setTimeout(()=>{descriptionPanel.hidden=true;},460);
+    focusState.phase='returning';
+    flyToItem(positions[0].clone(),targets[0].clone(),()=>{focusState=null;focusReturnElement?.focus?.({preventScroll:true});});
+  }
+  descriptionPanel.querySelector('button').onclick=returnToCabinet;
+  addEventListener('keydown',e=>{
+    if(focusState){if(e.key==='Escape'){e.preventDefault();returnToCabinet();}return;}
+    if(e.key==='Escape'&&albumState==='open'){closeAlbum();return;}
+    if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();if(albumState==='open')turnPage(e.key==='ArrowRight'?1:-1);else switchScene();}
+  });
+
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();fail(new Error('WebGL context lost'));});
   function animate(now){
     if(flight){
       const t=Math.min(1,(now-flight.start)/flight.duration);const eased=t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
       camera.position.copy(flight.curve.getPoint(eased));viewTarget.lerpVectors(flight.fromTarget,flight.toTarget,eased);camera.lookAt(viewTarget);
-      if(t===1){flight=null;setNavigation(false);}
+      if(t===1){const complete=flight.complete;flight=null;complete?.();setNavigation(false);}
     }
-    if(!flight&&activeScene===0&&!reducedMotion.matches){
+    if(!flight&&!focusState&&activeScene===0&&!reducedMotion.matches){
       const t=now*.001;camera.position.copy(positions[0]);camera.position.x+=Math.sin(t*.38)*.035;camera.position.y+=Math.sin(t*.51)*.025;camera.position.z+=Math.sin(t*.22)*.035;
       camera.lookAt(targets[0]);camera.rotation.z+=Math.sin(t*.075)*.012;
     }
+    if(focusState?.phase==='open')placeDescription();
     animateAlbum(now);
     uniforms.time.value=reducedMotion.matches?0:now*.001;
     renderer.setRenderTarget(target);renderer.render(scene,camera);renderer.setRenderTarget(null);renderer.render(postScene,postCamera);
   }
   renderer.setAnimationLoop(animate);
   await Promise.allSettled(assetPromises);
+  pageCache=spreads.map((_,i)=>[pageTexture(0,i),pageTexture(1,i)]);
+  for(const pair of pageCache)for(const page of pair)renderer.initTexture(page.tex);
+  showSpread(spread);renderer.compile(scene,camera);
   ready=true;setNavigation(false);loading.classList.add('done');document.body.dataset.ready='true';
 }

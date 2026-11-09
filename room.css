@@ -8,3 +8,11 @@
 #album-close{border-left:1px solid #c8bc9145!important;padding-left:17px}
 #album-access:focus-visible{clip:auto;width:auto;height:auto;left:50%;top:auto;bottom:130px;transform:translateX(-50%);padding:12px 22px;z-index:3;background:#222719;border:1px solid #a99f7c}
 @media(max-width:650px){#album-hud{bottom:133px;gap:9px;padding:5px 8px}}
+#item-description{position:absolute;width:330px;z-index:3;padding:32px 29px 28px;background:#ded5bbf5;color:#393327;border:1px solid #a99a74;box-shadow:0 14px 40px #080b0755;opacity:0;transform:translateY(12px);transition:opacity .45s ease,transform .45s ease;max-height:calc(100dvh - 200px);overflow:auto}
+#item-description[hidden]{display:none}
+#item-description.visible{opacity:1;transform:translateY(0)}
+#item-description time{font:10px 'Courier New',monospace;letter-spacing:2px;color:#897b59}
+#item-description h2{font:30px/1.12 Georgia,serif;letter-spacing:-.5px;margin:18px 0 20px;font-weight:400}
+#item-description p{font:15px/1.7 Georgia,serif;color:#70634b;margin:0}
+.focus-close{position:absolute;right:9px;top:8px;border:0;background:transparent;font:24px Arial;color:#70634b;width:28px;height:28px}
+@media(max-width:650px){#item-description{width:auto;padding:25px 24px;max-height:43dvh}#item-description h2{font-size:25px;margin:12px 0 14px}#item-description p{font-size:14px;line-height:1.6}}
