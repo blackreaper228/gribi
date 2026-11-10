@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#11120e">
   <meta name="description" content="Небольшая комната с вещами и воспоминаниями. Два ракурса, один личный архив.">
   <title>Вещи — комната воспоминаний</title>
-  <link rel="stylesheet" href="room.css?v=album-hover-2">
+  <link rel="stylesheet" href="room.css?v=scene-labels-1">
 </head>
 <body>
   <main id="room" aria-label="Трёхмерная комната воспоминаний">
@@ -17,17 +17,17 @@
     <div id="error" hidden role="alert"><h1>Не удалось открыть комнату</h1><p>Для этой галереи нужен WebGL. Попробуйте обновить страницу или открыть её в другом браузере.</p><button onclick="location.reload()">Попробовать ещё раз</button></div>
     <nav class="scene-nav" aria-label="Переключение сцен">
       <button id="scene-prev" aria-label="Предыдущая сцена" disabled><svg viewBox="0 0 32 16" aria-hidden="true"><path d="M30 8H2m6-6L2 8l6 6"/></svg></button>
-      <div class="scene-caption sr-only" aria-live="polite" style="position:absolute;min-width:0"><span id="scene-title">Шкаф с вещами</span><small id="scene-subtitle">У каждой вещи — своя история</small></div>
+      <div class="scene-caption" aria-live="polite"><span id="scene-title">Шкаф</span><small id="scene-subtitle" hidden>У каждой вещи — своя история</small></div>
       <button id="scene-next" aria-label="Следующая сцена" disabled><svg viewBox="0 0 32 16" aria-hidden="true"><path d="M2 8h28m-6-6 6 6-6 6"/></svg></button>
     </nav>
     <div id="object-buttons" class="sr-only" aria-label="Предметы на полках"></div>
   </main>
   <dialog id="detail" aria-labelledby="detail-title">
     <button class="close" aria-label="Закрыть">×</button>
-    <div class="detail-layout"><div class="detail-image"><img id="detail-photo" alt=""></div><div class="detail-copy"><time id="detail-date"></time><h2 id="detail-title"></h2><p id="detail-description"></p></div></div>
+    <div class="detail-layout"><div class="detail-image"><img id="detail-photo" alt=""></div><div class="detail-copy"><h2 id="detail-title"></h2><p id="detail-description"></p></div></div>
   </dialog>
   <noscript>Чтобы посмотреть 3D-галерею, включите JavaScript.</noscript>
   <!-- Image and dependency attribution: CREDITS.md -->
-  <script type="module" src="room.js?v=album-hover-2"></script>
+  <script type="module" src="room.js?v=scene-labels-1"></script>
 </body>
 </html>

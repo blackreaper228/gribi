@@ -27,3 +27,9 @@
 @font-face{font-family:'Harry Potter Kudos';src:url('assets/harry-potter-kudos.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
 /* DJ Slava TV / psx-research.ru, user-supplied HarryPotterKudos archive. */
 #item-description h2,.detail-copy h2{font-family:'Harry Potter Kudos',Georgia,serif;font-weight:400;letter-spacing:0;line-height:1.2}
+
+.scene-nav .scene-caption{min-width:100px;text-shadow:0 2px 10px #000}
+.scene-nav #scene-title{font:28px/1.15 'Harry Potter Kudos',Georgia,serif;letter-spacing:0}
+.scene-nav #scene-subtitle{display:none}
+#item-description h2{margin-top:10px}
+@media(max-width:650px){.scene-nav .scene-caption{min-width:86px}.scene-nav #scene-title{font-size:25px}}

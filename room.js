@@ -368,7 +368,7 @@ async function buildRoom() {
       const amount=THREE.MathUtils.lerp(albumAnimation.from,albumAnimation.to,ease);
       poseAlbum(amount);
       album.position.y+=Math.sin(Math.PI*t)*.22;
-      if(t===1){albumState=albumAnimation.to===1?'open':'closed';albumAnimation=null;poseAlbum(albumState==='open'?1:0);document.querySelector('#room').dataset.album=albumState;refreshAlbumHud();setNavigation(false);}
+      if(t===1){albumState=albumAnimation.to===1?'open':'closed';albumAnimation=null;poseAlbum(albumState==='open'?1:0);if(albumState==='closed'){spread=0;showSpread(0);turningPage.visible=false;highlightAlbumAction(null,null);}document.querySelector('#room').dataset.album=albumState;refreshAlbumHud();setNavigation(false);}
     }
     if(pageAnimation){
       const a=pageAnimation,t=Math.min(1,(now-a.start)/a.duration),ease=t*t*(3-2*t);
@@ -447,7 +447,7 @@ async function buildRoom() {
   addEventListener('resize',()=>{if(flight){const complete=flight.complete;flight=null;complete?.();setNavigation(false);}resize();if(focusState?.phase==='open'){const pose=itemCameraPose(focusState.point);camera.position.copy(pose.position);viewTarget.copy(pose.target);camera.lookAt(viewTarget);placeDescription();}});resize();
   function setNavigation(moving){prev.disabled=next.disabled=moving||!ready||!!focusState||(activeScene===1&&albumState!=='closed');document.querySelector('#room').setAttribute('aria-busy',String(moving));}
   function updateCaption(){
-    document.querySelector('#scene-title').textContent=activeScene===0?'Шкаф с вещами':'Фотоальбом';
+    document.querySelector('#scene-title').textContent=activeScene===0?'Шкаф':'Альбом';
     document.querySelector('#scene-subtitle').textContent=activeScene===0?'У каждой вещи — своя история':'Места, в которые можно вернуться';
     document.querySelector('#scene-number').textContent=activeScene===0?'01 / 02':'02 / 02';
     document.querySelector('#scene-kind').textContent=activeScene===0?'ЛИЧНЫЙ АРХИВ':'НА ПАМЯТЬ';
@@ -482,7 +482,7 @@ async function buildRoom() {
   const descriptionPanel=document.createElement('aside');
   descriptionPanel.id='item-description';descriptionPanel.hidden=true;
   descriptionPanel.setAttribute('role','dialog');descriptionPanel.setAttribute('aria-labelledby','item-description-title');
-  descriptionPanel.innerHTML='<button class="focus-close" aria-label="Вернуться к шкафу">×</button><time></time><h2 id="item-description-title"></h2><p></p>';
+  descriptionPanel.innerHTML='<button class="focus-close" aria-label="Вернуться к шкафу">×</button><h2 id="item-description-title"></h2><p></p>';
   document.querySelector('#room').append(descriptionPanel);
   let focusReturnElement=null;
   function itemCameraPose(point){
@@ -519,11 +519,11 @@ async function buildRoom() {
     descriptionPanel.style.top=Math.max(90,Math.min(innerHeight-rect.height-125,y-rect.height*.45))+'px';
   }
   function openItem(i){
-    if(!ready||flight||focusState||activeScene!==0)return;
+    if(!ready||flight||activeScene!==0||(focusState&&(focusState.phase!=='open'||focusState.index===i)))return;
     const item=items[i],sprite=sprites[i],point=sprite.getWorldPosition(new THREE.Vector3());point.y+=sprite.userData.height*.5;
-    focusReturnElement=document.activeElement;
+    if(!focusState)focusReturnElement=document.activeElement;
+    descriptionPanel.classList.remove('visible');descriptionPanel.hidden=true;
     focusState={index:i,point,phase:'zooming'};
-    descriptionPanel.querySelector('time').textContent=item.date;
     descriptionPanel.querySelector('h2').textContent=item.title;
     descriptionPanel.querySelector('p').textContent=item.description;
     const pose=itemCameraPose(point);
