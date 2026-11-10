@@ -522,6 +522,7 @@ async function buildRoom() {
     if(flight||!ready||focusState||albumState!=='closed')return;
     const from=camera.position.clone(),fromTarget=viewTarget.clone();activeScene=1-activeScene;updateCaption();
     if(reducedMotion.matches){camera.position.copy(positions[activeScene]);viewTarget.copy(targets[activeScene]);camera.lookAt(viewTarget);return;}
+    playCameraWhoosh(activeScene===0,true);
     const to=positions[activeScene].clone();
     const middle=from.clone().lerp(to,.5);middle.z+=1.65;middle.y+=.3;
     flight={start:performance.now(),duration:2200,curve:new THREE.QuadraticBezierCurve3(from,middle,to),fromTarget,toTarget:targets[activeScene].clone(),fromQuaternion:camera.quaternion.clone(),toQuaternion:cameraQuaternion(to,targets[activeScene]),endPosition:to.clone(),followShelf:activeScene===0};
@@ -582,7 +583,7 @@ async function buildRoom() {
     return {position,quaternion:cameraQuaternion(position,targets[0],roll)};
   }
   let cameraWhoosh=null;
-  function playCameraWhoosh(returning){
+  function playCameraWhoosh(returning,sceneChange=false){
     if(reducedMotion.matches)return;
     const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
     try{
@@ -590,15 +591,15 @@ async function buildRoom() {
       if(ctx.state==='suspended')ctx.resume().catch(()=>{});
       // Interrupt an unfinished swish when a camera flight is replaced.
       if(cameraWhoosh){try{cameraWhoosh.stop();}catch{}}
-      const duration=1.25,now=ctx.currentTime,buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*duration),ctx.sampleRate),data=buffer.getChannelData(0);
+      const duration=sceneChange?.24:.42,now=ctx.currentTime,buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*duration),ctx.sampleRate),data=buffer.getChannelData(0);
       let smooth=0;
-      for(let i=0;i<data.length;i++){smooth=.85*smooth+.15*(Math.random()*2-1);data[i]=smooth;}
+      for(let i=0;i<data.length;i++){smooth=.92*smooth+.08*(Math.random()*2-1);data[i]=smooth;}
       const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
-      source.buffer=buffer;filter.type='bandpass';filter.Q.value=.65;
-      filter.frequency.setValueAtTime(returning?1700:320,now);
-      filter.frequency.exponentialRampToValueAtTime(returning?320:1700,now+duration*.78);
+      source.buffer=buffer;filter.type='lowpass';filter.Q.value=.45;
+      filter.frequency.setValueAtTime(returning?650:180,now);
+      filter.frequency.exponentialRampToValueAtTime(returning?180:650,now+duration*.78);
       gain.gain.setValueAtTime(0,now);
-      gain.gain.linearRampToValueAtTime(.24,now+duration*.42);
+      gain.gain.linearRampToValueAtTime(sceneChange?.05:.07,now+duration*.3);
       gain.gain.linearRampToValueAtTime(0,now+duration);
       source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);
       cameraWhoosh=source;
