@@ -280,11 +280,11 @@ async function buildRoom() {
   }
   const albumHit=new THREE.Mesh(new THREE.BoxGeometry(1.4,.4,1.94),new THREE.MeshBasicMaterial({visible:false}));albumHit.position.set(.67,.14,0);album.add(albumHit);
   const closeTexture=textureCanvas(16,16,(ctx)=>{
-    ctx.fillStyle='#e9e3ce';
+    ctx.fillStyle='#ffffff';
     for(let i=3;i<=12;i++){ctx.fillRect(i,i,2,2);ctx.fillRect(15-i,i,2,2);}
   });
   closeTexture.magFilter=THREE.NearestFilter;closeTexture.minFilter=THREE.NearestFilter;
-  const albumCloseMark=new THREE.Mesh(new THREE.PlaneGeometry(.18,.18),new THREE.MeshBasicMaterial({map:closeTexture,transparent:true,alphaTest:.15,depthWrite:false,side:THREE.DoubleSide}));
+  const albumCloseMark=new THREE.Mesh(new THREE.PlaneGeometry(.18,.18),new THREE.MeshBasicMaterial({map:closeTexture,color:'#342b1d',transparent:true,alphaTest:.15,depthWrite:false,side:THREE.DoubleSide}));
   albumCloseMark.rotation.x=-Math.PI/2;albumCloseMark.position.set(1.20,.245,-.80);album.add(albumCloseMark);
   const albumCloseHit=new THREE.Mesh(new THREE.BoxGeometry(.28,.10,.28),new THREE.MeshBasicMaterial({visible:false}));
   albumCloseHit.position.copy(albumCloseMark.position);album.add(albumCloseHit);
@@ -301,7 +301,14 @@ async function buildRoom() {
     #album-photo-modal{padding:0;border:0;background:transparent;width:fit-content;max-width:94vw;max-height:92dvh;overflow:visible;box-shadow:none;color:#fff}
     #album-photo-modal::backdrop{background:#080a07ed;backdrop-filter:blur(8px)}
     #album-photo-modal img{display:block;max-width:94vw;max-height:88dvh;width:auto;height:auto;object-fit:contain}
-    #album-photo-modal button{position:absolute;right:8px;top:8px;width:42px;height:42px;border:1px solid #ffffff66;background:#111b;color:#fff;font:30px Arial;z-index:1}
+    #album-photo-modal button{position:fixed;right:max(28px,env(safe-area-inset-right));top:max(28px,env(safe-area-inset-top));width:42px;height:42px;padding:0;border:0;border-radius:0;background:transparent;color:#fff;font:36px/1 Arial;z-index:1}
+    #album-photo-modal[open]{animation:photo-modal-appear .3s ease both}
+    #album-photo-modal[open] img{animation:photo-image-appear .4s cubic-bezier(.16,1,.3,1) both}
+    #album-photo-modal[open]::backdrop{animation:photo-modal-appear .3s ease both}
+    @keyframes photo-modal-appear{from{opacity:0}to{opacity:1}}
+    @keyframes photo-image-appear{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+    @media(max-width:700px){#album-photo-modal button{right:max(16px,env(safe-area-inset-right));top:max(16px,env(safe-area-inset-top))}}
+    @media(prefers-reduced-motion:reduce){#album-photo-modal[open],#album-photo-modal[open] img,#album-photo-modal[open]::backdrop{animation:none}}
   `;
   document.head.append(photoStyle);document.body.append(photoModal);
   photoModal.querySelector('button').onclick=()=>photoModal.close();
@@ -496,7 +503,7 @@ async function buildRoom() {
     if(activeScene===1){const candidates=albumState==='closed'?[albumHit]:albumState==='open'?[albumCloseHit,...pageMeshes]:[];const hit=raycaster.intersectObjects(candidates).find(hit=>hit.object.visible);if(hit)hit.object.userData.hitUV=hit.uv;return hit?.object||null;}
     return raycaster.intersectObjects(interactives).find(hit=>hit.object.visible)?.object||null;
   }
-  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;const action=hit&&hit!==albumHit&&hit!==albumCloseHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#ffffff':'#e9e3ce');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||action)?'pointer':'default';}});
+  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;const action=hit&&hit!==albumHit&&hit!==albumCloseHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#100e09':'#342b1d');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||action)?'pointer':'default';}});
   canvas.addEventListener('pointerleave',()=>{highlightAlbumAction(null,null);setHover(null);albumHovered=false;canvas.style.cursor='default';});
   canvas.addEventListener('click',e=>{const hit=pick(e);if(!hit)return;if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open'){if(hit===albumCloseHit){closeAlbum();return;}const action=albumPageAction(hit,hit.userData.hitUV);if(action?.direction)turnPage(action.direction);else if(action?.photo!==undefined)openAlbumPhoto(action.photo);}});
   const descriptionPanel=document.createElement('aside');
