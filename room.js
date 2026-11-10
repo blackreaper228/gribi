@@ -422,11 +422,11 @@ async function buildRoom() {
   const shade=cylinder(table,.18,.39,.35,1.25,2.35,-.63,mat('#626d4b'));
   const bulb=new THREE.Mesh(new THREE.SphereGeometry(.07,8,6),new THREE.MeshBasicMaterial({color:'#fff1b4'}));bulb.position.set(1.25,2.18,-.63);table.add(bulb);
   const lampLight=new THREE.PointLight('#ffd990',13,6,2);lampLight.position.set(1.25,2.15,-.63);table.add(lampLight);
-  const lampCord=new THREE.Group();lampCord.position.set(1.55,2.19,-.38);table.add(lampCord);
+  const lampCord=new THREE.Group();lampCord.position.set(1.43,2.23,-.50);table.add(lampCord);
   const cordMaterial=mat('#c3b18d');
-  cylinder(lampCord,.014,.014,.45,0,-.225,0,cordMaterial,6);
-  const cordKnob=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),mat('#a78c54'));cordKnob.position.y=-.49;lampCord.add(cordKnob);
-  const cordHit=new THREE.Mesh(new THREE.BoxGeometry(.22,.66,.22),new THREE.MeshBasicMaterial({visible:false}));cordHit.position.y=-.27;lampCord.add(cordHit);
+  cylinder(lampCord,.014,.014,.36,0,-.18,0,cordMaterial,6);
+  const cordKnob=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),mat('#a78c54'));cordKnob.position.y=-.40;lampCord.add(cordKnob);
+  const cordHit=new THREE.Mesh(new THREE.BoxGeometry(.22,.56,.22),new THREE.MeshBasicMaterial({visible:false}));cordHit.position.y=-.21;lampCord.add(cordHit);
   let lampOn=true,lampPullStart=-Infinity;
   function toggleLamp(){
     lampOn=!lampOn;lampPullStart=performance.now();
@@ -435,7 +435,7 @@ async function buildRoom() {
   function animateLamp(now){
     lampLight.intensity=THREE.MathUtils.lerp(lampLight.intensity,lampOn?13:0,.18);
     const t=Math.min(1,(now-lampPullStart)/500);
-    lampCord.position.y=2.19-(reducedMotion.matches?0:Math.sin(t*Math.PI)*.08);
+    lampCord.position.y=2.23-(reducedMotion.matches?0:Math.sin(t*Math.PI)*.08);
   }
   const coaster=cylinder(table,.16,.16,.025,-1.5,1.44,-.75,darkWood);
   cylinder(table,.11,.10,.20,-1.5,1.55,-.75,mat('#b3aa8d'));
@@ -506,7 +506,7 @@ async function buildRoom() {
     if(reducedMotion.matches){camera.position.copy(positions[activeScene]);viewTarget.copy(targets[activeScene]);camera.lookAt(viewTarget);return;}
     const to=positions[activeScene].clone();
     const middle=from.clone().lerp(to,.5);middle.z+=1.65;middle.y+=.3;
-    flight={start:performance.now(),duration:2200,curve:new THREE.QuadraticBezierCurve3(from,middle,to),fromTarget,toTarget:targets[activeScene].clone()};
+    flight={start:performance.now(),duration:2200,curve:new THREE.QuadraticBezierCurve3(from,middle,to),fromTarget,toTarget:targets[activeScene].clone(),fromQuaternion:camera.quaternion.clone(),toQuaternion:cameraQuaternion(to,targets[activeScene]),endPosition:to.clone(),followShelf:activeScene===0};
     setNavigation(true);setHover(null);
   }
   prev.onclick=next.onclick=switchScene;
@@ -621,9 +621,8 @@ async function buildRoom() {
       }else camera.lookAt(viewTarget);
       if(t===1){const complete=flight.complete;flight=null;complete?.();setNavigation(false);}
     }
-    if(!flight&&!focusState&&activeScene===0&&!reducedMotion.matches){
-      const t=now*.001;camera.position.copy(positions[0]);camera.position.x+=Math.sin(t*.38)*.035;camera.position.y+=Math.sin(t*.51)*.025;camera.position.z+=Math.sin(t*.22)*.035;
-      camera.lookAt(targets[0]);camera.rotation.z+=Math.sin(t*.075)*.012;
+    if(!flight&&!focusState&&activeScene===0){
+      const pose=shelfCameraPose(now);camera.position.copy(pose.position);camera.quaternion.copy(pose.quaternion);viewTarget.copy(targets[0]);
     }
     if(focusState?.phase==='open')placeDescription();
     animateLamp(now);
