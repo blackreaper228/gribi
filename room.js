@@ -81,12 +81,16 @@ async function buildRoom() {
     const m=box(world,.97,.035,1.97,i+.5,.01,j*2+(i%2),mat(new THREE.Color().setHSL(.095,.22,.17+random()*.035),wood),false);
     m.receiveShadow=true;
   }
-  box(world,20,7,.2,0,3.5,-1.1,wallMat,false);
-  box(world,.2,7,18,-9.8,3.5,5,wallMat,false);
-  box(world,.2,7,18,9.8,3.5,5,wallMat,false);
+  box(world,20,30,.2,0,15,-1.1,wallMat,false);
+  box(world,.2,30,18,-9.8,15,5,wallMat,false);
+  box(world,.2,30,18,9.8,15,5,wallMat,false);
   box(world,20,.16,.18,0,.16,-.94,trimMat,false);
   box(world,20,1.1,.12,0,.66,-.95,panelMat,false);
   box(world,20,.07,.2,0,1.25,-.89,trimMat,false);
+  // Continue the skirting, lower panel and cap around the left corner.
+  box(world,.18,.16,18,-9.64,.16,5,trimMat,false);
+  box(world,.12,1.1,18,-9.65,.66,5,panelMat,false);
+  box(world,.2,.07,18,-9.59,1.25,5,trimMat,false);
   for(let x=-9;x<10;x++)box(world,.045,1.0,.08,x,.65,-.85,trimMat,false);
 
   const cabinet=new THREE.Group();cabinet.position.set(-3,0,0);world.add(cabinet);
@@ -418,6 +422,21 @@ async function buildRoom() {
   const shade=cylinder(table,.18,.39,.35,1.25,2.35,-.63,mat('#626d4b'));
   const bulb=new THREE.Mesh(new THREE.SphereGeometry(.07,8,6),new THREE.MeshBasicMaterial({color:'#fff1b4'}));bulb.position.set(1.25,2.18,-.63);table.add(bulb);
   const lampLight=new THREE.PointLight('#ffd990',13,6,2);lampLight.position.set(1.25,2.15,-.63);table.add(lampLight);
+  const lampCord=new THREE.Group();lampCord.position.set(1.55,2.19,-.38);table.add(lampCord);
+  const cordMaterial=mat('#c3b18d');
+  cylinder(lampCord,.014,.014,.45,0,-.225,0,cordMaterial,6);
+  const cordKnob=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),mat('#a78c54'));cordKnob.position.y=-.49;lampCord.add(cordKnob);
+  const cordHit=new THREE.Mesh(new THREE.BoxGeometry(.22,.66,.22),new THREE.MeshBasicMaterial({visible:false}));cordHit.position.y=-.27;lampCord.add(cordHit);
+  let lampOn=true,lampPullStart=-Infinity;
+  function toggleLamp(){
+    lampOn=!lampOn;lampPullStart=performance.now();
+    bulb.material.color.set(lampOn?'#fff1b4':'#514a36');
+  }
+  function animateLamp(now){
+    lampLight.intensity=THREE.MathUtils.lerp(lampLight.intensity,lampOn?13:0,.18);
+    const t=Math.min(1,(now-lampPullStart)/500);
+    lampCord.position.y=2.19-(reducedMotion.matches?0:Math.sin(t*Math.PI)*.08);
+  }
   const coaster=cylinder(table,.16,.16,.025,-1.5,1.44,-.75,darkWood);
   cylinder(table,.11,.10,.20,-1.5,1.55,-.75,mat('#b3aa8d'));
   const coffee=cylinder(table,.095,.095,.008,-1.5,1.653,-.75,mat('#34291d'));
@@ -500,10 +519,10 @@ async function buildRoom() {
   function pick(e){
     if(!ready||flight)return null;
     const r=canvas.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,camera);
-    if(activeScene===1){const candidates=albumState==='closed'?[albumHit]:albumState==='open'?[albumCloseHit,...pageMeshes]:[];const hit=raycaster.intersectObjects(candidates).find(hit=>hit.object.visible);if(hit)hit.object.userData.hitUV=hit.uv;return hit?.object||null;}
+    if(activeScene===1){const candidates=albumState==='closed'?[cordHit,albumHit]:albumState==='open'?[cordHit,albumCloseHit,...pageMeshes]:[];const hit=raycaster.intersectObjects(candidates).find(hit=>hit.object.visible);if(hit)hit.object.userData.hitUV=hit.uv;return hit?.object||null;}
     return raycaster.intersectObjects(interactives).find(hit=>hit.object.visible)?.object||null;
   }
-  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;const action=hit&&hit!==albumHit&&hit!==albumCloseHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#100e09':'#342b1d');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||action)?'pointer':'default';}});
+  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;cordKnob.material.color.set(hit===cordHit?'#ffe3a0':'#a78c54');const action=hit&&hit!==albumHit&&hit!==albumCloseHit&&hit!==cordHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#100e09':'#342b1d');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||hit===cordHit||action)?'pointer':'default';}});
   canvas.addEventListener('pointerleave',()=>{highlightAlbumAction(null,null);setHover(null);albumHovered=false;canvas.style.cursor='default';});
   canvas.addEventListener('click',e=>{const hit=pick(e);if(!hit){
       if(ready&&!flight&&activeScene===1&&albumState==='open'&&!photoModal.open){
@@ -515,7 +534,7 @@ async function buildRoom() {
         if(!onBook)closeAlbum();
       }
       return;
-    }if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open'){if(hit===albumCloseHit){closeAlbum();return;}const action=albumPageAction(hit,hit.userData.hitUV);if(action?.direction)turnPage(action.direction);else if(action?.photo!==undefined)openAlbumPhoto(action.photo);}});
+    }if(hit===cordHit){toggleLamp();return;}if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open'){if(hit===albumCloseHit){closeAlbum();return;}const action=albumPageAction(hit,hit.userData.hitUV);if(action?.direction)turnPage(action.direction);else if(action?.photo!==undefined)openAlbumPhoto(action.photo);}});
   const descriptionPanel=document.createElement('aside');
   descriptionPanel.id='item-description';descriptionPanel.hidden=true;
   descriptionPanel.setAttribute('role','dialog');descriptionPanel.setAttribute('aria-labelledby','item-description-title');
@@ -607,6 +626,7 @@ async function buildRoom() {
       camera.lookAt(targets[0]);camera.rotation.z+=Math.sin(t*.075)*.012;
     }
     if(focusState?.phase==='open')placeDescription();
+    animateLamp(now);
     animateAlbum(now);
     uniforms.time.value=reducedMotion.matches?0:now*.001;
     renderer.setRenderTarget(target);renderer.render(scene,camera);renderer.setRenderTarget(null);renderer.render(postScene,postCamera);

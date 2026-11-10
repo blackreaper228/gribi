@@ -89,3 +89,6 @@
 #loading{background:#000}
 #loading .loading-mark{display:none}
 #loading-text{font:clamp(25px,2vw,38px)/1.2 'Harry Potter Kudos',Georgia,serif;letter-spacing:0}
+
+#loading .loading-line{width:min(560px,calc(100vw - 64px));height:2px;background:#ffffff26}
+#loading .loading-line i{height:2px;background:#fff}
