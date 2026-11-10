@@ -504,6 +504,9 @@ async function buildRoom() {
   descriptionPanel.setAttribute('role','dialog');descriptionPanel.setAttribute('aria-labelledby','item-description-title');
   descriptionPanel.innerHTML='<img class="item-modal-photo" alt=""><div class="item-modal-copy"><button class="focus-close" aria-label="Вернуться к шкафу">×</button><h2 id="item-description-title"></h2><p></p></div>';
   document.querySelector('#room').append(descriptionPanel);
+  const objectCloseButton=descriptionPanel.querySelector('button');
+  objectCloseButton.classList.add('object-screen-close');
+  document.querySelector('#room').append(objectCloseButton);
   let focusReturnElement=null;
   function itemCameraPose(point){
     const portrait=innerWidth/innerHeight<.85,distance=portrait?3.1:2.65;
@@ -537,6 +540,7 @@ async function buildRoom() {
     if(!focusState)focusReturnElement=document.activeElement;
     descriptionPanel.classList.remove('visible');descriptionPanel.hidden=true;
     focusState={index:i,point,phase:'zooming'};
+    document.querySelector('#room').dataset.object='open';
     descriptionPanel.querySelector('.item-modal-photo').src=item.photo;
     descriptionPanel.querySelector('.item-modal-photo').alt=item.title;
     descriptionPanel.querySelector('h2').textContent=item.title;
@@ -545,16 +549,17 @@ async function buildRoom() {
     flyToItem(pose.position,pose.target,()=>{
       focusState.phase='open';descriptionPanel.hidden=false;placeDescription();
       requestAnimationFrame(()=>descriptionPanel.classList.add('visible'));
-      descriptionPanel.querySelector('button').focus({preventScroll:true});
+      objectCloseButton.focus({preventScroll:true});
     });
   }
   function returnToCabinet(){
     if(!focusState||focusState.phase==='returning')return;
     descriptionPanel.classList.remove('visible');setTimeout(()=>{descriptionPanel.hidden=true;},460);
     focusState.phase='returning';
-    flyToItem(positions[0].clone(),targets[0].clone(),()=>{focusState=null;focusReturnElement?.focus?.({preventScroll:true});},true);
+    document.querySelector('#room').dataset.object='closing';
+    flyToItem(positions[0].clone(),targets[0].clone(),()=>{focusState=null;delete document.querySelector('#room').dataset.object;focusReturnElement?.focus?.({preventScroll:true});},true);
   }
-  descriptionPanel.querySelector('button').onclick=returnToCabinet;
+  objectCloseButton.onclick=returnToCabinet;
   addEventListener('keydown',e=>{
     if(photoModal.open)return;
     if(focusState){if(e.key==='Escape'){e.preventDefault();returnToCabinet();}return;}

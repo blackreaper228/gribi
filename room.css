@@ -66,3 +66,14 @@
  #item-description h2{font-size:28px;margin-bottom:22px}
  #item-description p{font-size:14px}
 }
+
+/* Dim the full scene without intercepting neighbouring object clicks. */
+#room::after{content:"";position:fixed;inset:0;z-index:2;background:#000;opacity:0;pointer-events:none;transition:opacity .5s ease}
+#room[data-object="open"]::after{opacity:.5}
+#room[data-object] .scene-nav{opacity:0;visibility:hidden;pointer-events:none}
+.object-screen-close{position:fixed;top:max(32px,env(safe-area-inset-top));right:max(32px,env(safe-area-inset-right));z-index:5;width:40px;height:40px;padding:0;border:0;background:transparent;color:#e9e3ce;font:36px/1 Arial;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .25s ease}
+#room[data-object="open"] .object-screen-close{opacity:1;visibility:visible;pointer-events:auto}
+.object-screen-close:hover{color:#fff}
+@media(min-width:701px){#item-description .item-modal-copy{margin-left:36%;width:54%;padding-top:24px}}
+@media(min-width:701px) and (max-width:1100px){#item-description .item-modal-copy{margin-left:36%;width:57%}}
+@media(max-width:700px){.object-screen-close{top:max(18px,env(safe-area-inset-top));right:max(18px,env(safe-area-inset-right))}}
