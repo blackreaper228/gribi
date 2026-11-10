@@ -12,13 +12,12 @@
   <main id="room" aria-label="Трёхмерная комната воспоминаний">
     <canvas id="view" aria-label="Шкаф с предметами и столик с фотоальбомом"></canvas>
     <div class="frame" aria-hidden="true"></div>
-    <header class="identity"><span class="mark" aria-hidden="true">✳</span><span>ВЕЩИ<br><small>КОМНАТА ВОСПОМИНАНИЙ</small></span></header>
-    <div class="scene-note"><span id="scene-number">01 / 02</span><span id="scene-kind">ЛИЧНЫЙ АРХИВ</span></div>
+    <div class="scene-note" style="display:none" aria-hidden="true"><span id="scene-number">01 / 02</span><span id="scene-kind">ЛИЧНЫЙ АРХИВ</span></div>
     <div id="loading" role="status"><span class="loading-mark">✳</span><span id="loading-text">Включаем свет…</span><div class="loading-line"><i></i></div></div>
     <div id="error" hidden role="alert"><h1>Не удалось открыть комнату</h1><p>Для этой галереи нужен WebGL. Попробуйте обновить страницу или открыть её в другом браузере.</p><button onclick="location.reload()">Попробовать ещё раз</button></div>
     <nav class="scene-nav" aria-label="Переключение сцен">
       <button id="scene-prev" aria-label="Предыдущая сцена" disabled><svg viewBox="0 0 32 16" aria-hidden="true"><path d="M30 8H2m6-6L2 8l6 6"/></svg></button>
-      <div class="scene-caption" aria-live="polite"><span id="scene-title">Шкаф с вещами</span><small id="scene-subtitle">У каждой вещи — своя история</small></div>
+      <div class="scene-caption sr-only" aria-live="polite" style="position:absolute;min-width:0"><span id="scene-title">Шкаф с вещами</span><small id="scene-subtitle">У каждой вещи — своя история</small></div>
       <button id="scene-next" aria-label="Следующая сцена" disabled><svg viewBox="0 0 32 16" aria-hidden="true"><path d="M2 8h28m-6-6 6 6-6 6"/></svg></button>
     </nav>
     <div class="scene-dots" aria-hidden="true"><i class="active"></i><i></i></div>
