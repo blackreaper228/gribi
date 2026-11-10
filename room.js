@@ -171,20 +171,27 @@ async function buildRoom() {
   const pageCanvases=[],photoImages=[];
   let spread=0;
   const spreads=[
-    {photos:[[0,2],[1,3]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']},
-    {photos:[[2,3],[0,1]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']},
-    {photos:[[1,0],[3,2]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']}
+    {photos:[[],[0,1]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']},
+    {photos:[[2,3],[4,5]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']},
+    {photos:[[6,7],[8]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']}
   ];
+  function photoRect(side,slot,spreadIndex=spread){
+    const list=spreads[spreadIndex].photos[side],img=photoImages[list[slot]];
+    const single=list.length===1,bx=slot?130:90,by=slot?695:145,mw=slot?760:840,mh=single?940:(slot?390:490);
+    const scale=img?Math.min(mw/img.width,mh/img.height):1;
+    const w=img?img.width*scale:mw,h=img?img.height*scale:mh;
+    return {x:bx+(mw-w)/2,y:by+(mh-h)/2,w,h,angle:(side?1:-1)*(slot?-.025:.018)};
+  }
   function drawPage(ctx,index,spreadIndex=spread){
     const w=1024,h=1280;ctx.fillStyle='#d3c6a6';ctx.fillRect(0,0,w,h);
     for(let n=0;n<5000;n++){ctx.fillStyle=n%2?'#fff2':'#40341d0a';ctx.fillRect((n*127.7)%w,(n*79.1)%h,1,1);}
     const info=spreads[spreadIndex];
     info.photos[index].forEach((p,j)=>{
-      const img=photoImages[p],x=j?130:90,y=j?695:145,pw=j?760:840,ph=j?390:490;
-      ctx.save();ctx.translate(x+pw/2,y+ph/2);ctx.rotate((index?1:-1)*(j?-.025:.018));
+      const img=photoImages[p];if(!img)return;
+      const {x,y,w:pw,h:ph,angle}=photoRect(index,j,spreadIndex);
+      ctx.save();ctx.translate(x+pw/2,y+ph/2);ctx.rotate(angle);
       ctx.fillStyle='#191c15';ctx.fillRect(-pw/2-12,-ph/2-12,pw+24,ph+24);
-      if(img){const ratio=pw/ph;let sw=img.width,sh=img.height;if(sw/sh>ratio)sw=sh*ratio;else sh=sw/ratio;ctx.drawImage(img,(img.width-sw)/2,(img.height-sh)/2,sw,sh,-pw/2,-ph/2,pw,ph);}
-      else{ctx.fillStyle='#849379';ctx.fillRect(-pw/2,-ph/2,pw,ph);}
+      ctx.drawImage(img,-pw/2,-ph/2,pw,ph);
       ctx.fillStyle='#ede0b9';
       [[-pw/2-12,-ph/2-12,1,1],[pw/2+12,-ph/2-12,-1,1],[-pw/2-12,ph/2+12,1,-1],[pw/2+12,ph/2+12,-1,-1]].forEach(([x,y,sx,sy])=>{ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+24*sx,y);ctx.lineTo(x,y+24*sy);ctx.fill();});ctx.restore();
     });
@@ -236,14 +243,14 @@ async function buildRoom() {
       const x=side===0?0:1024,dx=side===0?1:-1;
       ctx.beginPath();ctx.moveTo(x,1280);ctx.lineTo(x+dx*150,1280);ctx.lineTo(x,1110);ctx.closePath();ctx.fill();ctx.stroke();
     }else{
-      const j=action.slot,x=j?130:90,y=j?695:145,w=j?760:840,h=j?390:490;
-      ctx.save();ctx.translate(x+w/2,y+h/2);ctx.rotate((side?1:-1)*(j?-.025:.018));
+      const {x,y,w,h,angle}=photoRect(side,action.slot);
+      ctx.save();ctx.translate(x+w/2,y+h/2);ctx.rotate(angle);
       ctx.fillRect(-w/2,-h/2,w,h);ctx.strokeRect(-w/2-6,-h/2-6,w+12,h+12);ctx.restore();
     }
     h.texture.needsUpdate=true;
   }
-  for(let i=0;i<4;i++){
-    const promise=new Promise(resolve=>{const img=new Image();img.onload=()=>{photoImages[i]=img;pageCanvases.forEach((p,j)=>{drawPage(p.ctx,j);p.tex.needsUpdate=true;});resolve();};img.onerror=()=>resolve();img.src='assets/photo-'+i+'.jpg';});assetPromises.push(promise);
+  for(let i=0;i<9;i++){
+    const promise=new Promise(resolve=>{const img=new Image();img.onload=()=>{photoImages[i]=img;pageCanvases.forEach((p,j)=>{drawPage(p.ctx,j);p.tex.needsUpdate=true;});resolve();};img.onerror=()=>resolve();img.src='assets/album-photo-'+i+'.webp';});assetPromises.push(promise);
   }
   // Cache every spread once, after all photographs have decoded.
   let pageCache=[];
@@ -298,9 +305,9 @@ async function buildRoom() {
       const direction=side===0?-1:1;
       return spread+direction>=0&&spread+direction<spreads.length?{direction}:null;
     }
-    for(let j=0;j<2;j++){
-      const px=j?130:90,py=j?695:145,w=j?760:840,h=j?390:490;
-      const angle=(side?1:-1)*(j?-.025:.018),dx=x-(px+w/2),dy=y-(py+h/2);
+    for(let j=0;j<spreads[spread].photos[side].length;j++){
+      const {x:px,y:py,w,h,angle}=photoRect(side,j);
+      const dx=x-(px+w/2),dy=y-(py+h/2);
       const localX=dx*Math.cos(angle)+dy*Math.sin(angle),localY=-dx*Math.sin(angle)+dy*Math.cos(angle);
       if(Math.abs(localX)<=w/2&&Math.abs(localY)<=h/2)return {photo:spreads[spread].photos[side][j],slot:j};
     }
