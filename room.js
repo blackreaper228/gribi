@@ -1,4 +1,4 @@
-import {items} from './items.js';
+import {items} from './items.js?v=personal-objects-1';
 
 const loading = document.querySelector('#loading');
 function fail(error) {
@@ -121,12 +121,12 @@ async function buildRoom() {
   function loadTexture(url){
     const promise=new Promise((resolve,reject)=>loader.load(url,t=>{
       t.colorSpace=THREE.SRGBColorSpace;t.magFilter=THREE.NearestFilter;t.minFilter=THREE.LinearMipmapLinearFilter;
-      loadedCount++;document.querySelector('.loading-line i').style.width=Math.min(100,loadedCount/13*100)+'%';resolve(t);
+      loadedCount++;document.querySelector('.loading-line i').style.width=Math.min(100,loadedCount/(items.length+1)*100)+'%';resolve(t);
     },undefined,reject));assetPromises.push(promise);return promise;
   }
   items.forEach((item,i)=>{
-    const row=Math.floor(i/3),x=(i%3-1)*1.35,y=shelfY[row]+.012;
-    const baseHeight=[.65,.57,.56,.55,.6,.47,.49,.54,.48][i];
+    const row=Math.floor(i/2),x=(i%2===0?-.95:.95),y=shelfY[row]+.012;
+    const baseHeight=.68;
     const material=new THREE.SpriteMaterial({transparent:true,alphaTest:.12,depthWrite:false,color:'#eee3c6'});
     const sprite=new THREE.Sprite(material);sprite.center.set(.5,0);sprite.position.set(x,y,.19);
     sprite.scale.set(.7,baseHeight,1);sprite.userData.item=i;sprite.userData.height=baseHeight;cabinet.add(sprite);sprites.push(sprite);interactives.push(sprite);
@@ -134,7 +134,8 @@ async function buildRoom() {
     loadTexture(item.photo).then(t=>{
       material.map=t;material.needsUpdate=true;
       const aspect=t.image.width/t.image.height;
-      sprite.scale.set(Math.min(1.08,baseHeight*aspect),baseHeight,1);
+      const height=Math.min(baseHeight,1.30/aspect);
+      sprite.scale.set(height*aspect,height,1);sprite.userData.height=height;
       sprite.userData.baseScale=sprite.scale.clone();
     }).catch(()=>{sprite.visible=false;});
     const b=document.createElement('button');b.textContent=item.title;b.onclick=()=>openItem(i);document.querySelector('#object-buttons').append(b);
@@ -169,9 +170,9 @@ async function buildRoom() {
   const pageCanvases=[],photoImages=[];
   let spread=0;
   const spreads=[
-    {photos:[[0,2],[1,3]],notes:['август. ещё один день.','туда, где было тихо']},
-    {photos:[[2,3],[0,1]],notes:['свернуть с дороги','остаться ещё немного']},
-    {photos:[[1,0],[3,2]],notes:['всё это было с нами','и будет что вспомнить']}
+    {photos:[[0,2],[1,3]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']},
+    {photos:[[2,3],[0,1]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']},
+    {photos:[[1,0],[3,2]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']}
   ];
   function drawPage(ctx,index,spreadIndex=spread){
     const w=1024,h=1280;ctx.fillStyle='#d3c6a6';ctx.fillRect(0,0,w,h);
@@ -448,7 +449,7 @@ async function buildRoom() {
   function setNavigation(moving){prev.disabled=next.disabled=moving||!ready||!!focusState||(activeScene===1&&albumState!=='closed');document.querySelector('#room').setAttribute('aria-busy',String(moving));}
   function updateCaption(){
     document.querySelector('#scene-title').textContent=activeScene===0?'Шкаф':'Альбом';
-    document.querySelector('#scene-subtitle').textContent=activeScene===0?'У каждой вещи — своя история':'Места, в которые можно вернуться';
+    document.querySelector('#scene-subtitle').textContent='%ВСТАВИТЬ_ТЕКСТ%';
     document.querySelector('#scene-number').textContent=activeScene===0?'01 / 02':'02 / 02';
     document.querySelector('#scene-kind').textContent=activeScene===0?'ЛИЧНЫЙ АРХИВ':'НА ПАМЯТЬ';
     document.querySelectorAll('.scene-dots i').forEach((el,i)=>el.classList.toggle('active',i===activeScene));
