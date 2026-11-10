@@ -581,7 +581,33 @@ async function buildRoom() {
     }
     return {position,quaternion:cameraQuaternion(position,targets[0],roll)};
   }
+  let cameraWhoosh=null;
+  function playCameraWhoosh(returning){
+    if(reducedMotion.matches)return;
+    const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
+    try{
+      lampAudio??=new Audio();const ctx=lampAudio;
+      if(ctx.state==='suspended')ctx.resume().catch(()=>{});
+      // Interrupt an unfinished swish when a camera flight is replaced.
+      if(cameraWhoosh){try{cameraWhoosh.stop();}catch{}}
+      const duration=1.25,now=ctx.currentTime,buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*duration),ctx.sampleRate),data=buffer.getChannelData(0);
+      let smooth=0;
+      for(let i=0;i<data.length;i++){smooth=.85*smooth+.15*(Math.random()*2-1);data[i]=smooth;}
+      const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
+      source.buffer=buffer;filter.type='bandpass';filter.Q.value=.65;
+      filter.frequency.setValueAtTime(returning?1700:320,now);
+      filter.frequency.exponentialRampToValueAtTime(returning?320:1700,now+duration*.78);
+      gain.gain.setValueAtTime(0,now);
+      gain.gain.linearRampToValueAtTime(.24,now+duration*.42);
+      gain.gain.linearRampToValueAtTime(0,now+duration);
+      source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);
+      cameraWhoosh=source;
+      source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();if(cameraWhoosh===source)cameraWhoosh=null;};
+      source.start(now);source.stop(now+duration);
+    }catch{}
+  }
   function flyToItem(position,target,complete,followShelf=false){
+    playCameraWhoosh(followShelf);
     const from=camera.position.clone(),middle=from.clone().lerp(position,.5);middle.z+=.2;
     flight={start:performance.now(),duration:reducedMotion.matches?1:1250,curve:new THREE.QuadraticBezierCurve3(from,middle,position),fromTarget:viewTarget.clone(),toTarget:target.clone(),fromQuaternion:camera.quaternion.clone(),toQuaternion:cameraQuaternion(position,target),endPosition:position.clone(),followShelf,complete};
     setNavigation(true);setHover(null);
