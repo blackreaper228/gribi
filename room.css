@@ -16,3 +16,14 @@
 #item-description p{font:15px/1.7 Georgia,serif;color:#70634b;margin:0}
 .focus-close{position:absolute;right:9px;top:8px;border:0;background:transparent;font:24px Arial;color:#70634b;width:28px;height:28px}
 @media(max-width:650px){#item-description{width:auto;padding:25px 24px;max-height:43dvh}#item-description h2{font-size:25px;margin:12px 0 14px}#item-description p{font-size:14px;line-height:1.6}}
+
+/* Compact camera navigation; hidden through the complete album interaction. */
+.scene-nav{width:auto;justify-content:center;gap:12px;transition:opacity .25s,visibility .25s}
+.scene-nav button{width:52px;height:52px;flex-basis:52px;border-radius:50%}
+.scene-dots{display:none}
+#room[data-album="opening"] .scene-nav,#room[data-album="open"] .scene-nav,#room[data-album="turning"] .scene-nav,#room[data-album="closing"] .scene-nav{opacity:0;visibility:hidden;pointer-events:none}
+@media(max-width:650px){.scene-nav{width:auto;gap:10px}.scene-nav button{width:48px;height:48px;flex-basis:48px}}
+
+@font-face{font-family:'Harry Potter Kudos';src:url('assets/harry-potter-kudos.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
+/* DJ Slava TV / psx-research.ru, user-supplied HarryPotterKudos archive. */
+#item-description h2,.detail-copy h2{font-family:'Harry Potter Kudos',Georgia,serif;font-weight:400;letter-spacing:0;line-height:1.2}

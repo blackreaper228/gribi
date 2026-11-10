@@ -214,6 +214,32 @@ async function buildRoom() {
     const mesh=new THREE.Mesh(pageGeometry(i),new THREE.MeshLambertMaterial({map:p.tex,side:THREE.DoubleSide}));mesh.receiveShadow=true;mesh.userData.pageSide=i;album.add(mesh);pageMeshes.push(mesh);
   }
   pageMeshes[0].visible=false;
+  const albumHighlights=pageMeshes.map((page,side)=>{
+    const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=1280;
+    const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+    const material=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false,opacity:0,polygonOffset:true,polygonOffsetFactor:-2,side:THREE.DoubleSide});
+    const mesh=new THREE.Mesh(pageGeometry(side),material);mesh.position.y=.004;mesh.renderOrder=2;album.add(mesh);
+    return {canvas,texture,mesh};
+  });
+  let albumHighlightKey='',albumHighlightSide=-1;
+  function highlightAlbumAction(page,action){
+    const side=page?.userData.pageSide;
+    const key=action?side+':'+(action.direction?'corner':action.slot):'';
+    if(key===albumHighlightKey)return;
+    albumHighlightKey=key;albumHighlightSide=action?side:-1;
+    if(!action)return;
+    const h=albumHighlights[side],ctx=h.canvas.getContext('2d');ctx.clearRect(0,0,1024,1280);
+    ctx.strokeStyle='#fff3bb';ctx.fillStyle='#fff1b930';ctx.lineWidth=12;ctx.shadowColor='#ffe7a0';ctx.shadowBlur=18;
+    if(action.direction){
+      const x=side===0?0:1024,dx=side===0?1:-1;
+      ctx.beginPath();ctx.moveTo(x,1280);ctx.lineTo(x+dx*150,1280);ctx.lineTo(x,1110);ctx.closePath();ctx.fill();ctx.stroke();
+    }else{
+      const j=action.slot,x=j?130:90,y=j?695:145,w=j?760:840,h=j?390:490;
+      ctx.save();ctx.translate(x+w/2,y+h/2);ctx.rotate((side?1:-1)*(j?-.025:.018));
+      ctx.fillRect(-w/2,-h/2,w,h);ctx.strokeRect(-w/2-6,-h/2-6,w+12,h+12);ctx.restore();
+    }
+    h.texture.needsUpdate=true;
+  }
   for(let i=0;i<4;i++){
     const promise=new Promise(resolve=>{const img=new Image();img.onload=()=>{photoImages[i]=img;pageCanvases.forEach((p,j)=>{drawPage(p.ctx,j);p.tex.needsUpdate=true;});resolve();};img.onerror=()=>resolve();img.src='assets/photo-'+i+'.jpg';});assetPromises.push(promise);
   }
@@ -262,7 +288,7 @@ async function buildRoom() {
   document.head.append(photoStyle);document.body.append(photoModal);
   photoModal.querySelector('button').onclick=()=>photoModal.close();
   photoModal.addEventListener('click',e=>{if(e.target===photoModal)photoModal.close();});
-  function openAlbumPhoto(index){photoModal.querySelector('img').src=photoImages[index].src;photoModal.showModal();}
+  function openAlbumPhoto(index){highlightAlbumAction(null,null);photoModal.querySelector('img').src=photoImages[index].src;photoModal.showModal();}
   function albumPageAction(mesh,uv){
     if(!uv||albumState!=='open')return null;
     const side=mesh.userData.pageSide,x=uv.x*1024,y=(1-uv.y)*1280;
@@ -274,7 +300,7 @@ async function buildRoom() {
       const px=j?130:90,py=j?695:145,w=j?760:840,h=j?390:490;
       const angle=(side?1:-1)*(j?-.025:.018),dx=x-(px+w/2),dy=y-(py+h/2);
       const localX=dx*Math.cos(angle)+dy*Math.sin(angle),localY=-dx*Math.sin(angle)+dy*Math.cos(angle);
-      if(Math.abs(localX)<=w/2&&Math.abs(localY)<=h/2)return {photo:spreads[spread].photos[side][j]};
+      if(Math.abs(localX)<=w/2&&Math.abs(localY)<=h/2)return {photo:spreads[spread].photos[side][j],slot:j};
     }
     return null;
   }
@@ -303,6 +329,7 @@ async function buildRoom() {
     document.querySelector('#room').dataset.album='opening';setNavigation(false);
   }
   function closeAlbum(){
+    highlightAlbumAction(null,null);
     if(albumState!=='open')return;
     albumState='closing';refreshAlbumHud();
     albumAnimation={start:performance.now(),duration:reducedMotion.matches?1:1100,from:1,to:0};
@@ -310,7 +337,7 @@ async function buildRoom() {
   }
   function turnPage(direction){
     const dest=spread+direction;if(albumState!=='open'||dest<0||dest>=spreads.length||!pageCache.length)return;
-    albumState='turning';
+    albumState='turning';highlightAlbumAction(null,null);
     pageAnimation={start:performance.now(),duration:reducedMotion.matches?1:1100,direction,dest};
     if(direction>0){
       turningFront.material.map=pageCache[spread][1].tex;
@@ -330,6 +357,12 @@ async function buildRoom() {
   document.querySelector('#page-prev').onclick=()=>turnPage(-1);
   document.querySelector('#page-next').onclick=()=>turnPage(1);
   function animateAlbum(now){
+    albumHighlights.forEach((h,side)=>{
+      const visible=albumState==='open'&&!photoModal.open&&pageMeshes[side].visible;
+      h.mesh.visible=visible;
+      const target=visible&&albumHighlightSide===side?1:0;
+      h.mesh.material.opacity=reducedMotion.matches?target:THREE.MathUtils.lerp(h.mesh.material.opacity,target,.22);
+    });
     if(albumAnimation){
       const t=Math.min(1,(now-albumAnimation.start)/albumAnimation.duration),ease=t*t*(3-2*t);
       const amount=THREE.MathUtils.lerp(albumAnimation.from,albumAnimation.to,ease);
@@ -443,8 +476,8 @@ async function buildRoom() {
     if(activeScene===1){const candidates=albumState==='closed'?[albumHit]:albumState==='open'?pageMeshes:[];const hit=raycaster.intersectObjects(candidates).find(hit=>hit.object.visible);if(hit)hit.object.userData.hitUV=hit.uv;return hit?.object||null;}
     return raycaster.intersectObjects(interactives).find(hit=>hit.object.visible)?.object||null;
   }
-  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;}else{albumHovered=hit===albumHit;canvas.style.cursor=hit&&(hit===albumHit||albumPageAction(hit,hit.userData.hitUV))?'pointer':'default';}});
-  canvas.addEventListener('pointerleave',()=>{setHover(null);albumHovered=false;canvas.style.cursor='default';});
+  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;const action=hit&&hit!==albumHit?albumPageAction(hit,hit.userData.hitUV):null;highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||action)?'pointer':'default';}});
+  canvas.addEventListener('pointerleave',()=>{highlightAlbumAction(null,null);setHover(null);albumHovered=false;canvas.style.cursor='default';});
   canvas.addEventListener('click',e=>{const hit=pick(e);if(!hit)return;if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open'){const action=albumPageAction(hit,hit.userData.hitUV);if(action?.direction)turnPage(action.direction);else if(action?.photo!==undefined)openAlbumPhoto(action.photo);}});
   const descriptionPanel=document.createElement('aside');
   descriptionPanel.id='item-description';descriptionPanel.hidden=true;
