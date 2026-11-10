@@ -354,20 +354,20 @@ async function buildRoom() {
   }
   function openAlbum(){
     if(!ready||flight||activeScene!==1||albumState!=='closed')return;
-    albumState='opening';albumHovered=false;
+    albumState='opening';albumHovered=false;playBookSound('open');
     albumAnimation={start:performance.now(),duration:reducedMotion.matches?1:1500,from:0,to:1};
     document.querySelector('#room').dataset.album='opening';setNavigation(false);
   }
   function closeAlbum(){
     highlightAlbumAction(null,null);
     if(albumState!=='open')return;
-    albumState='closing';refreshAlbumHud();
+    albumState='closing';playBookSound('close');refreshAlbumHud();
     albumAnimation={start:performance.now(),duration:reducedMotion.matches?1:1100,from:1,to:0};
     document.querySelector('#room').dataset.album='closing';setNavigation(false);
   }
   function turnPage(direction){
     const dest=spread+direction;if(albumState!=='open'||dest<0||dest>=spreads.length||!pageCache.length)return;
-    albumState='turning';highlightAlbumAction(null,null);
+    albumState='turning';playBookSound('page');highlightAlbumAction(null,null);
     pageAnimation={start:performance.now(),duration:reducedMotion.matches?1:1100,direction,dest};
     if(direction>0){
       turningFront.material.map=pageCache[spread][1].tex;
@@ -443,6 +443,29 @@ async function buildRoom() {
         source.buffer=buffer;filter.type='bandpass';filter.frequency.value=on?1800:1400;filter.Q.value=.7;gain.gain.value=volume;
         source.connect(filter);filter.connect(gain);gain.connect(lampAudio.destination);
         source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};source.start(now+delay);
+      }
+    }catch{}
+  }
+  function playBookSound(kind){
+    const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
+    try{
+      lampAudio??=new Audio();const ctx=lampAudio;
+      if(ctx.state==='suspended')ctx.resume().catch(()=>{});
+      const duration=kind==='page'?.48:.6,now=ctx.currentTime;
+      const buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*duration),ctx.sampleRate),data=buffer.getChannelData(0);
+      let brown=0;for(let i=0;i<data.length;i++){const n=Math.random()*2-1;brown=.7*brown+.3*n;data[i]=brown*(.65+.35*Math.sin(i/ctx.sampleRate*95));}
+      const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
+      source.buffer=buffer;filter.type='bandpass';filter.Q.value=.5;
+      filter.frequency.setValueAtTime(kind==='page'?1600:650,now);
+      filter.frequency.exponentialRampToValueAtTime(kind==='page'?750:250,now+duration);
+      gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(kind==='page'?.12:.16,now+.09);gain.gain.linearRampToValueAtTime(0,now+duration);
+      source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);
+      source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};source.start(now);source.stop(now+duration);
+      if(kind!=='page'){
+        const tone=ctx.createOscillator(),thud=ctx.createGain();tone.type='sine';
+        tone.frequency.setValueAtTime(kind==='close'?135:180,now+.18);tone.frequency.exponentialRampToValueAtTime(65,now+.28);
+        thud.gain.setValueAtTime(0,now);thud.gain.setValueAtTime(.06,now+.18);thud.gain.exponentialRampToValueAtTime(.001,now+.32);
+        tone.connect(thud);thud.connect(ctx.destination);tone.onended=()=>{tone.disconnect();thud.disconnect();};tone.start(now);tone.stop(now+.33);
       }
     }catch{}
   }
@@ -539,6 +562,7 @@ async function buildRoom() {
   }
   function switchScene(){
     if(flight||!ready||focusState||albumState!=='closed')return;
+    setLocationHover(null);
     const from=camera.position.clone(),fromTarget=viewTarget.clone();activeScene=1-activeScene;updateCaption();
     if(reducedMotion.matches){camera.position.copy(positions[activeScene]);viewTarget.copy(targets[activeScene]);camera.lookAt(viewTarget);return;}
     playCameraWhoosh(activeScene===0,true);
@@ -554,15 +578,44 @@ async function buildRoom() {
     hovered=sprite;canvas.style.cursor=sprite?'pointer':'default';
     if(sprite){sprite.material.color.set('#fff8e5');if(sprite.userData.baseScale)sprite.scale.copy(sprite.userData.baseScale).multiplyScalar(1.035);}
   }
+  const locationMaterials=new Map();
+  for(const group of [cabinet,table]){
+    const materials=[];
+    group.traverse(node=>{
+      for(let p=node;p;p=p.parent)if(p===album)return;
+      if(!node.isMesh||!node.material?.emissive)return;
+      node.material=node.material.clone();
+      materials.push({material:node.material,emissive:node.material.emissive.clone(),intensity:node.material.emissiveIntensity});
+    });
+    locationMaterials.set(group,materials);
+  }
+  let hoveredLocation=null;
+  function setLocationHover(group){
+    if(hoveredLocation===group)return;
+    if(hoveredLocation)for(const m of locationMaterials.get(hoveredLocation)){m.material.emissive.copy(m.emissive);m.material.emissiveIntensity=m.intensity;}
+    hoveredLocation=group;
+    if(group)for(const m of locationMaterials.get(group)){m.material.emissive.set('#b9a26d');m.material.emissiveIntensity=.18;}
+  }
+  function pickLocation(){
+    if(!ready||flight||focusState||albumState!=='closed')return null;
+    const hit=raycaster.intersectObjects([cabinet,table],true).find(({object})=>{
+      if(object.material?.visible===false)return false;
+      for(let n=object;n&&n!==world;n=n.parent)if(!n.visible)return false;
+      return true;
+    });
+    if(!hit)return null;
+    let root=hit.object;while(root.parent&&root!==cabinet&&root!==table)root=root.parent;
+    return root===(activeScene===0?table:cabinet)?root:null;
+  }
   function pick(e){
     if(!ready||flight)return null;
     const r=canvas.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,camera);
     if(activeScene===1){const candidates=albumState==='closed'?[cordHit,albumHit]:albumState==='open'?[cordHit,albumCloseHit,...pageMeshes]:[];const hit=raycaster.intersectObjects(candidates).find(hit=>hit.object.visible);if(hit)hit.object.userData.hitUV=hit.uv;return hit?.object||null;}
     return raycaster.intersectObjects(interactives).find(hit=>hit.object.visible)?.object||null;
   }
-  canvas.addEventListener('pointermove',e=>{const hit=pick(e);floorKnob.material.color.set(hit===floorCordHit?'#ffe3a0':'#a78c54');if(activeScene===0){setHover(hit===floorCordHit?null:hit);if(hit===floorCordHit)canvas.style.cursor='pointer';albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;cordKnob.material.color.set(hit===cordHit?'#ffe3a0':'#a78c54');const action=hit&&hit!==albumHit&&hit!==albumCloseHit&&hit!==cordHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#100e09':'#342b1d');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||hit===cordHit||action)?'pointer':'default';}});
-  canvas.addEventListener('pointerleave',()=>{highlightAlbumAction(null,null);setHover(null);albumHovered=false;canvas.style.cursor='default';});
-  canvas.addEventListener('click',e=>{const hit=pick(e);if(!hit){
+  canvas.addEventListener('pointermove',e=>{const hit=pick(e),location=pickLocation();setLocationHover(location);if(location){setHover(null);albumHovered=false;highlightAlbumAction(null,null);canvas.style.cursor='pointer';return;}floorKnob.material.color.set(hit===floorCordHit?'#ffe3a0':'#a78c54');if(activeScene===0){setHover(hit===floorCordHit?null:hit);if(hit===floorCordHit)canvas.style.cursor='pointer';albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;cordKnob.material.color.set(hit===cordHit?'#ffe3a0':'#a78c54');const action=hit&&hit!==albumHit&&hit!==albumCloseHit&&hit!==cordHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#100e09':'#342b1d');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||hit===cordHit||action)?'pointer':'default';}});
+  canvas.addEventListener('pointerleave',()=>{setLocationHover(null);highlightAlbumAction(null,null);setHover(null);albumHovered=false;canvas.style.cursor='default';});
+  canvas.addEventListener('click',e=>{const hit=pick(e);if(pickLocation()){switchScene();return;}if(!hit){
       if(ready&&!flight&&activeScene===1&&albumState==='open'&&!photoModal.open){
         const onBook=raycaster.intersectObject(album,true).some(({object})=>{
           if(object===albumHit||object===albumCloseHit)return false;
@@ -620,8 +673,8 @@ async function buildRoom() {
       gain.gain.setValueAtTime(0,now);
       if(sceneChange){
         gain.gain.linearRampToValueAtTime(.05,now+duration*.3);
-        gain.gain.linearRampToValueAtTime(.035,now+duration*.72);
-        gain.gain.linearRampToValueAtTime(0,now+duration*.9);
+        gain.gain.linearRampToValueAtTime(.035,now+duration*.58);
+        gain.gain.linearRampToValueAtTime(0,now+duration*.74);
       }else{
         gain.gain.linearRampToValueAtTime(.012,now+duration*.30);
         gain.gain.linearRampToValueAtTime(.07,now+duration*.58);
