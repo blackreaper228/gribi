@@ -428,8 +428,26 @@ async function buildRoom() {
   const cordKnob=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),mat('#a78c54'));cordKnob.position.y=-.40;lampCord.add(cordKnob);
   const cordHit=new THREE.Mesh(new THREE.BoxGeometry(.22,.56,.22),new THREE.MeshBasicMaterial({visible:false}));cordHit.position.y=-.21;lampCord.add(cordHit);
   let lampOn=true,lampPullStart=-Infinity;
+  let lampAudio=null;
+  function playLampClick(){
+    const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
+    try{
+      lampAudio??=new Audio();
+      if(lampAudio.state==='suspended')lampAudio.resume().catch(()=>{});
+      const now=lampAudio.currentTime,rate=lampAudio.sampleRate;
+      // Two tiny, filtered noise impulses mimic a mechanical pull switch.
+      for(const [delay,duration,volume] of [[0,.018,.24],[.025,.012,.12]]){
+        const buffer=lampAudio.createBuffer(1,Math.ceil(rate*duration),rate),data=buffer.getChannelData(0);
+        for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/data.length,3);
+        const source=lampAudio.createBufferSource(),filter=lampAudio.createBiquadFilter(),gain=lampAudio.createGain();
+        source.buffer=buffer;filter.type='bandpass';filter.frequency.value=lampOn?1800:1400;filter.Q.value=.7;gain.gain.value=volume;
+        source.connect(filter);filter.connect(gain);gain.connect(lampAudio.destination);
+        source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};source.start(now+delay);
+      }
+    }catch{}
+  }
   function toggleLamp(){
-    lampOn=!lampOn;lampPullStart=performance.now();
+    lampOn=!lampOn;lampPullStart=performance.now();playLampClick();
     bulb.material.color.set(lampOn?'#fff1b4':'#514a36');
   }
   function animateLamp(now){
