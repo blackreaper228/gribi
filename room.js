@@ -450,13 +450,13 @@ async function buildRoom() {
     lampOn=!lampOn;lampPullStart=performance.now();playLampClick();
     bulb.material.color.set(lampOn?'#fff1b4':'#514a36');
   }
-  const floorLamp=new THREE.Group();floorLamp.position.set(-6.15,0,.45);world.add(floorLamp);
+  const floorLamp=new THREE.Group();floorLamp.position.set(-9.0,0,-.12);world.add(floorLamp);
   cylinder(floorLamp,.40,.46,.10,0,.08,0,brass);
   cylinder(floorLamp,.035,.035,2.98,0,1.61,0,brass);
   cylinder(floorLamp,.30,.62,.55,0,3.35,0,mat('#626d4b'));
   const floorBulb=new THREE.Mesh(new THREE.SphereGeometry(.10,8,6),new THREE.MeshBasicMaterial({color:'#fff1b4'}));floorBulb.position.set(0,3.08,0);floorLamp.add(floorBulb);
   const floorLight=new THREE.PointLight('#ffd990',20,8,2);floorLight.position.set(0,3.02,.08);floorLamp.add(floorLight);
-  contactShadow(world,-6.15,.06,.45,1.25,1.25);
+  contactShadow(world,-9.0,.06,-.12,1.25,1.25);
   const floorCord=new THREE.Group();floorCord.position.set(.25,3.13,.16);floorLamp.add(floorCord);
   cylinder(floorCord,.014,.014,.46,0,-.23,0,cordMaterial,6);
   const floorKnob=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),mat('#a78c54'));floorKnob.position.y=-.50;floorCord.add(floorKnob);
@@ -618,8 +618,15 @@ async function buildRoom() {
       filter.frequency.setValueAtTime(returning?650:180,now);
       filter.frequency.exponentialRampToValueAtTime(returning?180:650,now+duration*.78);
       gain.gain.setValueAtTime(0,now);
-      gain.gain.linearRampToValueAtTime(sceneChange?.05:.07,now+duration*.3);
-      gain.gain.linearRampToValueAtTime(0,now+duration);
+      if(sceneChange){
+        gain.gain.linearRampToValueAtTime(.05,now+duration*.3);
+        gain.gain.linearRampToValueAtTime(.035,now+duration*.72);
+        gain.gain.linearRampToValueAtTime(0,now+duration*.9);
+      }else{
+        gain.gain.linearRampToValueAtTime(.012,now+duration*.30);
+        gain.gain.linearRampToValueAtTime(.07,now+duration*.58);
+        gain.gain.linearRampToValueAtTime(0,now+duration);
+      }
       source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);
       cameraWhoosh=source;
       source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();if(cameraWhoosh===source)cameraWhoosh=null;};
