@@ -127,14 +127,14 @@ async function buildRoom() {
   items.forEach((item,i)=>{
     const row=Math.floor(i/3),x=(i%3-1)*1.35,y=shelfY[row]+.012;
     const baseHeight=.68;
+    const sizeFactor=['Потус','Котик «Верим»'].includes(item.title)?1:1/3;
     const material=new THREE.SpriteMaterial({transparent:true,alphaTest:.12,depthWrite:false,color:'#eee3c6'});
     const sprite=new THREE.Sprite(material);sprite.center.set(.5,0);sprite.position.set(x,y,.19);
     sprite.scale.set(.7,baseHeight,1);sprite.userData.item=i;sprite.userData.height=baseHeight;cabinet.add(sprite);sprites.push(sprite);interactives.push(sprite);
-    contactShadow(cabinet,x,y+.004,.17,.7,.4);
+    contactShadow(cabinet,x,y+.004,.17,.7*sizeFactor,.4*sizeFactor);
     loadTexture(item.photo).then(t=>{
       material.map=t;material.needsUpdate=true;
       const aspect=t.image.width/t.image.height;
-      const sizeFactor=['Потус','Котик «Верим»'].includes(item.title)?1:1/3;
       const height=Math.min(baseHeight,1.30/aspect)*sizeFactor;
       sprite.scale.set(height*aspect,height,1);sprite.userData.height=height;
       sprite.userData.baseScale=sprite.scale.clone();
