@@ -1,4 +1,4 @@
-import {items} from './items.js?v=personal-objects-1';
+import {items} from './items.js?v=belaz-case-1';
 
 const loading = document.querySelector('#loading');
 function fail(error) {
@@ -540,15 +540,16 @@ async function buildRoom() {
     if(!focusState)focusReturnElement=document.activeElement;
     descriptionPanel.classList.remove('visible');descriptionPanel.hidden=true;
     focusState={index:i,point,phase:'zooming'};
-    document.querySelector('#room').dataset.object='open';
+    document.querySelector('#room').dataset.object='zooming';
     descriptionPanel.querySelector('.item-modal-photo').src=item.photo;
     descriptionPanel.querySelector('.item-modal-photo').alt=item.title;
     descriptionPanel.querySelector('h2').textContent=item.title;
+    descriptionPanel.querySelector('h2').style.textTransform=item.title==='BELAz'?'none':'';
     descriptionPanel.querySelector('p').textContent=item.description;
     const pose=itemCameraPose(point);
     flyToItem(pose.position,pose.target,()=>{
       focusState.phase='open';descriptionPanel.hidden=false;placeDescription();
-      requestAnimationFrame(()=>descriptionPanel.classList.add('visible'));
+      requestAnimationFrame(()=>{descriptionPanel.classList.add('visible');document.querySelector('#room').dataset.object='open';});
       objectCloseButton.focus({preventScroll:true});
     });
   }

@@ -1,6 +1,6 @@
 export const items = [
   {
-    "title": "BELAZ",
+    "title": "BELAz",
     "description": "%ВСТАВИТЬ_ТЕКСТ%",
     "photo": "assets/personal-object-0.webp"
   },
