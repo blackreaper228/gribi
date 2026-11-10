@@ -33,3 +33,10 @@
 .scene-nav #scene-subtitle{display:none}
 #item-description h2{margin-top:10px}
 @media(max-width:650px){.scene-nav .scene-caption{min-width:86px}.scene-nav #scene-title{font-size:25px}}
+
+/* Pixel arrows supplied by the owner; the opposite direction is mirrored. */
+.scene-nav button{border:0;border-radius:0;background:transparent;backdrop-filter:none;width:56px;height:48px;flex-basis:56px}
+.scene-nav button:hover:not(:disabled){background:transparent;filter:brightness(1.35);transform:translateY(-2px)}
+.scene-nav svg{width:46px;height:32px;stroke:none;fill:none;image-rendering:pixelated}
+#scene-prev svg{transform:scaleX(-1)}
+#album-hud{display:none!important}

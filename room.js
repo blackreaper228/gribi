@@ -171,16 +171,16 @@ async function buildRoom() {
   const pageCanvases=[],photoImages=[];
   let spread=0;
   const spreads=[
-    {photos:[[],[0,1]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']},
-    {photos:[[2,3],[4,5]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']},
-    {photos:[[6,7],[8]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']}
+    {photos:[[],[0,1,2]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']},
+    {photos:[[3,4,5],[6,7,8]],notes:['%ВСТАВИТЬ_ТЕКСТ%','%ВСТАВИТЬ_ТЕКСТ%']}
   ];
   function photoRect(side,slot,spreadIndex=spread){
     const list=spreads[spreadIndex].photos[side],img=photoImages[list[slot]];
-    const single=list.length===1,bx=slot?130:90,by=slot?695:145,mw=slot?760:840,mh=single?940:(slot?390:490);
+    const col=slot%2,row=Math.floor(slot/2),wide=list.length===3&&slot===2;
+    const bx=wide?92:92+col*458,by=155+row*462,mw=wide?840:382,mh=400;
     const scale=img?Math.min(mw/img.width,mh/img.height):1;
     const w=img?img.width*scale:mw,h=img?img.height*scale:mh;
-    return {x:bx+(mw-w)/2,y:by+(mh-h)/2,w,h,angle:(side?1:-1)*(slot?-.025:.018)};
+    return {x:bx+(mw-w)/2,y:by+(mh-h)/2,w,h,angle:(side?1:-1)*[.018,-.025,-.012,.02][slot]};
   }
   function drawPage(ctx,index,spreadIndex=spread){
     const w=1024,h=1280;ctx.fillStyle='#d3c6a6';ctx.fillRect(0,0,w,h);
@@ -279,6 +279,15 @@ async function buildRoom() {
     for(const g of [turnGeometry,turnBackGeometry]){g.attributes.position.needsUpdate=true;g.computeVertexNormals();g.computeBoundingSphere();}
   }
   const albumHit=new THREE.Mesh(new THREE.BoxGeometry(1.4,.4,1.94),new THREE.MeshBasicMaterial({visible:false}));albumHit.position.set(.67,.14,0);album.add(albumHit);
+  const closeTexture=textureCanvas(16,16,(ctx)=>{
+    ctx.fillStyle='#e9e3ce';
+    for(let i=3;i<=12;i++){ctx.fillRect(i,i,2,2);ctx.fillRect(15-i,i,2,2);}
+  });
+  closeTexture.magFilter=THREE.NearestFilter;closeTexture.minFilter=THREE.NearestFilter;
+  const albumCloseMark=new THREE.Mesh(new THREE.PlaneGeometry(.18,.18),new THREE.MeshBasicMaterial({map:closeTexture,transparent:true,alphaTest:.15,depthWrite:false,side:THREE.DoubleSide}));
+  albumCloseMark.rotation.x=-Math.PI/2;albumCloseMark.position.set(1.20,.245,-.80);album.add(albumCloseMark);
+  const albumCloseHit=new THREE.Mesh(new THREE.BoxGeometry(.28,.10,.28),new THREE.MeshBasicMaterial({visible:false}));
+  albumCloseHit.position.copy(albumCloseMark.position);album.add(albumCloseHit);
   let albumState='closed',albumAnimation=null,pageAnimation=null,albumHovered=false,hoverLift=0;
   let albumOpenAmount=0;
   const albumHud=document.createElement('div');albumHud.id='album-hud';albumHud.hidden=true;
@@ -315,6 +324,7 @@ async function buildRoom() {
   }
   const albumAccess=document.createElement('button');albumAccess.id='album-access';albumAccess.className='sr-only';albumAccess.textContent='Открыть фотоальбом';albumAccess.hidden=true;document.querySelector('#room').append(albumAccess);
   function refreshAlbumHud(){
+    albumAccess.textContent=albumState==='open'?'Закрыть фотоальбом':'Открыть фотоальбом';
     document.querySelector('#page-count').textContent=(spread*2+1)+'–'+(spread*2+2)+' / '+spreads.length*2;
     document.querySelector('#page-prev').disabled=spread===0||albumState!=='open';
     document.querySelector('#page-next').disabled=spread===spreads.length-1||albumState!=='open';
@@ -361,11 +371,12 @@ async function buildRoom() {
     poseTurningSheet(direction>0?0:Math.PI);turningPage.visible=true;
     refreshAlbumHud();
   }
-  albumAccess.onclick=openAlbum;
+  albumAccess.onclick=()=>albumState==='open'?closeAlbum():openAlbum();
   document.querySelector('#album-close').onclick=closeAlbum;
   document.querySelector('#page-prev').onclick=()=>turnPage(-1);
   document.querySelector('#page-next').onclick=()=>turnPage(1);
   function animateAlbum(now){
+    albumCloseMark.visible=albumState==='open'||albumState==='turning';
     albumHighlights.forEach((h,side)=>{
       const visible=albumState==='open'&&!photoModal.open&&pageMeshes[side].visible;
       h.mesh.visible=visible;
@@ -482,12 +493,12 @@ async function buildRoom() {
   function pick(e){
     if(!ready||flight)return null;
     const r=canvas.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,camera);
-    if(activeScene===1){const candidates=albumState==='closed'?[albumHit]:albumState==='open'?pageMeshes:[];const hit=raycaster.intersectObjects(candidates).find(hit=>hit.object.visible);if(hit)hit.object.userData.hitUV=hit.uv;return hit?.object||null;}
+    if(activeScene===1){const candidates=albumState==='closed'?[albumHit]:albumState==='open'?[albumCloseHit,...pageMeshes]:[];const hit=raycaster.intersectObjects(candidates).find(hit=>hit.object.visible);if(hit)hit.object.userData.hitUV=hit.uv;return hit?.object||null;}
     return raycaster.intersectObjects(interactives).find(hit=>hit.object.visible)?.object||null;
   }
-  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;const action=hit&&hit!==albumHit?albumPageAction(hit,hit.userData.hitUV):null;highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||action)?'pointer':'default';}});
+  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;const action=hit&&hit!==albumHit&&hit!==albumCloseHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#ffffff':'#e9e3ce');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||action)?'pointer':'default';}});
   canvas.addEventListener('pointerleave',()=>{highlightAlbumAction(null,null);setHover(null);albumHovered=false;canvas.style.cursor='default';});
-  canvas.addEventListener('click',e=>{const hit=pick(e);if(!hit)return;if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open'){const action=albumPageAction(hit,hit.userData.hitUV);if(action?.direction)turnPage(action.direction);else if(action?.photo!==undefined)openAlbumPhoto(action.photo);}});
+  canvas.addEventListener('click',e=>{const hit=pick(e);if(!hit)return;if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open'){if(hit===albumCloseHit){closeAlbum();return;}const action=albumPageAction(hit,hit.userData.hitUV);if(action?.direction)turnPage(action.direction);else if(action?.photo!==undefined)openAlbumPhoto(action.photo);}});
   const descriptionPanel=document.createElement('aside');
   descriptionPanel.id='item-description';descriptionPanel.hidden=true;
   descriptionPanel.setAttribute('role','dialog');descriptionPanel.setAttribute('aria-labelledby','item-description-title');
