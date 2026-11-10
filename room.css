@@ -40,3 +40,29 @@
 .scene-nav svg{width:46px;height:32px;stroke:none;fill:none;image-rendering:pixelated}
 #scene-prev svg{transform:scaleX(-1)}
 #album-hud{display:none!important}
+
+/* Camera arrows match the label's cap height, keeping generous hit areas. */
+.scene-nav button{width:42px;height:44px;flex-basis:42px}
+.scene-nav svg{width:32px;height:22px}
+/* The panel is exactly 1024px on a 2560px viewport. The image's centre is
+   anchored at its left boundary, outside the low-resolution WebGL render. */
+#item-description{position:fixed;inset:0 0 0 auto;width:40vw;height:100dvh;max-height:none;z-index:3;padding:0;border:0;box-shadow:none;background:none;color:#e9e3ce;overflow:visible;display:flex;align-items:center;opacity:0;transform:translateX(18%);transition:opacity .5s ease,transform .65s cubic-bezier(.16,1,.3,1);pointer-events:none;isolation:isolate}
+#item-description::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.58) 32%,rgba(0,0,0,.9) 100%)}
+#item-description[hidden]{display:none}
+#item-description.visible{opacity:1;transform:translateX(0)}
+#item-description .item-modal-photo{position:absolute;left:0;top:50%;transform:translate(-50%,-50%);width:clamp(180px,18vw,460px);height:70dvh;max-height:900px;object-fit:contain;image-rendering:auto;filter:drop-shadow(0 16px 30px #0005);pointer-events:none}
+#item-description .item-modal-copy{position:relative;margin-left:24%;margin-right:10%;width:66%;max-height:75dvh;overflow-y:auto;overflow-wrap:anywhere;padding:64px 0 24px;pointer-events:auto}
+#item-description h2{font:clamp(26px,1.8vw,46px)/1.12 'Harry Potter Kudos',Georgia,serif;letter-spacing:0;text-transform:uppercase;color:#e9e3ce;margin:0 0 40px}
+#item-description p{font:clamp(14px,.65vw,17px)/1.6 Arial,sans-serif;color:#e9e3ce;white-space:pre-line;margin:0}
+#item-description .focus-close{position:absolute;right:0;top:0;width:32px;height:32px;color:#e9e3ce;font:32px/1 Arial;background:none;border:0;padding:0}
+#item-description .focus-close:hover{color:white;transform:rotate(90deg);transition:transform .2s}
+@media(max-width:1100px) and (min-width:701px){#item-description{width:46vw}#item-description .item-modal-photo{width:22vw}#item-description .item-modal-copy{margin-left:27%;margin-right:7%;width:66%}}
+@media(max-width:700px){
+ .scene-nav svg{width:29px;height:20px}
+ #item-description{width:100%;height:100dvh;align-items:flex-end}
+ #item-description::before{background:linear-gradient(180deg,#0000 0%,#0006 25%,#000e 65%,#000f 100%)}
+ #item-description .item-modal-photo{left:50%;top:27%;width:70vw;height:42dvh;max-height:none}
+ #item-description .item-modal-copy{width:auto;margin:0 26px 7dvh;padding:52px 0 0;max-height:43dvh;flex:1}
+ #item-description h2{font-size:28px;margin-bottom:22px}
+ #item-description p{font-size:14px}
+}

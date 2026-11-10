@@ -502,7 +502,7 @@ async function buildRoom() {
   const descriptionPanel=document.createElement('aside');
   descriptionPanel.id='item-description';descriptionPanel.hidden=true;
   descriptionPanel.setAttribute('role','dialog');descriptionPanel.setAttribute('aria-labelledby','item-description-title');
-  descriptionPanel.innerHTML='<button class="focus-close" aria-label="Вернуться к шкафу">×</button><h2 id="item-description-title"></h2><p></p>';
+  descriptionPanel.innerHTML='<img class="item-modal-photo" alt=""><div class="item-modal-copy"><button class="focus-close" aria-label="Вернуться к шкафу">×</button><h2 id="item-description-title"></h2><p></p></div>';
   document.querySelector('#room').append(descriptionPanel);
   let focusReturnElement=null;
   function itemCameraPose(point){
@@ -529,21 +529,16 @@ async function buildRoom() {
     flight={start:performance.now(),duration:reducedMotion.matches?1:1250,curve:new THREE.QuadraticBezierCurve3(from,middle,position),fromTarget:viewTarget.clone(),toTarget:target.clone(),fromQuaternion:camera.quaternion.clone(),toQuaternion:cameraQuaternion(position,target),endPosition:position.clone(),followShelf,complete};
     setNavigation(true);setHover(null);
   }
-  function placeDescription(){
-    if(!focusState)return;
-    if(innerWidth/innerHeight<.85){descriptionPanel.style.left='20px';descriptionPanel.style.right='20px';descriptionPanel.style.top='auto';descriptionPanel.style.bottom='116px';return;}
-    const point=focusState.point.clone().project(camera),x=(point.x*.5+.5)*innerWidth,y=(-point.y*.5+.5)*innerHeight;
-    const rect=descriptionPanel.getBoundingClientRect();
-    descriptionPanel.style.right='auto';descriptionPanel.style.bottom='auto';
-    descriptionPanel.style.left=Math.max(20,Math.min(innerWidth-rect.width-26,x+100))+'px';
-    descriptionPanel.style.top=Math.max(90,Math.min(innerHeight-rect.height-125,y-rect.height*.45))+'px';
-  }
+  // The image centre and fade boundary share the same CSS anchor.
+  function placeDescription(){}
   function openItem(i){
     if(!ready||flight||activeScene!==0||(focusState&&(focusState.phase!=='open'||focusState.index===i)))return;
     const item=items[i],sprite=sprites[i],point=sprite.getWorldPosition(new THREE.Vector3());point.y+=sprite.userData.height*.5;
     if(!focusState)focusReturnElement=document.activeElement;
     descriptionPanel.classList.remove('visible');descriptionPanel.hidden=true;
     focusState={index:i,point,phase:'zooming'};
+    descriptionPanel.querySelector('.item-modal-photo').src=item.photo;
+    descriptionPanel.querySelector('.item-modal-photo').alt=item.title;
     descriptionPanel.querySelector('h2').textContent=item.title;
     descriptionPanel.querySelector('p').textContent=item.description;
     const pose=itemCameraPose(point);
