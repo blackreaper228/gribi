@@ -188,6 +188,11 @@ async function buildRoom() {
     });
     ctx.fillStyle='#6b6149';ctx.font='italic 28px Georgia';ctx.fillText(info.notes[index],115,1175);
     ctx.font='19px monospace';ctx.fillText(String(spreadIndex*2+index+1).padStart(2,'0'),890,1220);
+    if((index===0&&spreadIndex>0)||(index===1&&spreadIndex<spreads.length-1)){
+      const x=index===0?0:w,dx=index===0?1:-1;
+      ctx.fillStyle='#a89a79';ctx.beginPath();ctx.moveTo(x,h);ctx.lineTo(x+dx*150,h);ctx.lineTo(x,h-170);ctx.closePath();ctx.fill();
+      ctx.strokeStyle='#6b6149';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(x+dx*32,h-50);ctx.lineTo(x+dx*64,h-50);ctx.moveTo(x+dx*48,h-66);ctx.lineTo(x+dx*32,h-50);ctx.lineTo(x+dx*48,h-34);ctx.stroke();
+    }
     const g=ctx.createLinearGradient(index?0:w,0,index?70:w-70,0);g.addColorStop(0,'#22190d66');g.addColorStop(1,'#22190d00');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
   }
   function pageTexture(index,spreadIndex=spread){
@@ -216,6 +221,7 @@ async function buildRoom() {
   let pageCache=[];
   function showSpread(index){
     pageMeshes.forEach((mesh,side)=>{mesh.material.map=pageCache[index][side].tex;});
+    pageMeshes[0].visible=index>0&&albumOpenAmount>.76;
   }
   const turningPage=new THREE.Group();album.add(turningPage);turningPage.visible=false;
   const turnGeometry=new THREE.PlaneGeometry(1.27,1.77,28,1);
@@ -243,6 +249,35 @@ async function buildRoom() {
   const albumHud=document.createElement('div');albumHud.id='album-hud';albumHud.hidden=true;
   albumHud.innerHTML='<button id="page-prev" aria-label="Предыдущий разворот">←</button><span id="page-count" aria-live="polite"></span><button id="page-next" aria-label="Следующий разворот">→</button><button id="album-close" aria-label="Закрыть альбом">×</button>';
   document.querySelector('#room').append(albumHud);
+  for(const id of ['page-prev','page-next']){const button=document.getElementById(id);button.className='sr-only';button.style.position='absolute';}
+  const photoModal=document.createElement('dialog');photoModal.id='album-photo-modal';photoModal.setAttribute('aria-label','Фотография из альбома');
+  photoModal.innerHTML='<button type="button" autofocus aria-label="Закрыть фотографию">×</button><img alt="Фотография из альбома">';
+  const photoStyle=document.createElement('style');
+  photoStyle.textContent=`
+    #album-photo-modal{padding:0;border:0;background:transparent;width:fit-content;max-width:94vw;max-height:92dvh;overflow:visible;box-shadow:none;color:#fff}
+    #album-photo-modal::backdrop{background:#080a07ed;backdrop-filter:blur(8px)}
+    #album-photo-modal img{display:block;max-width:94vw;max-height:88dvh;width:auto;height:auto;object-fit:contain}
+    #album-photo-modal button{position:absolute;right:8px;top:8px;width:42px;height:42px;border:1px solid #ffffff66;background:#111b;color:#fff;font:30px Arial;z-index:1}
+  `;
+  document.head.append(photoStyle);document.body.append(photoModal);
+  photoModal.querySelector('button').onclick=()=>photoModal.close();
+  photoModal.addEventListener('click',e=>{if(e.target===photoModal)photoModal.close();});
+  function openAlbumPhoto(index){photoModal.querySelector('img').src=photoImages[index].src;photoModal.showModal();}
+  function albumPageAction(mesh,uv){
+    if(!uv||albumState!=='open')return null;
+    const side=mesh.userData.pageSide,x=uv.x*1024,y=(1-uv.y)*1280;
+    if(y>1110&&(side===0?x<150:x>874)){
+      const direction=side===0?-1:1;
+      return spread+direction>=0&&spread+direction<spreads.length?{direction}:null;
+    }
+    for(let j=0;j<2;j++){
+      const px=j?130:90,py=j?695:145,w=j?760:840,h=j?390:490;
+      const angle=(side?1:-1)*(j?-.025:.018),dx=x-(px+w/2),dy=y-(py+h/2);
+      const localX=dx*Math.cos(angle)+dy*Math.sin(angle),localY=-dx*Math.sin(angle)+dy*Math.cos(angle);
+      if(Math.abs(localX)<=w/2&&Math.abs(localY)<=h/2)return {photo:spreads[spread].photos[side][j]};
+    }
+    return null;
+  }
   const albumAccess=document.createElement('button');albumAccess.id='album-access';albumAccess.className='sr-only';albumAccess.textContent='Открыть фотоальбом';albumAccess.hidden=true;document.querySelector('#room').append(albumAccess);
   function refreshAlbumHud(){
     document.querySelector('#page-count').textContent=(spread*2+1)+'–'+(spread*2+2)+' / '+spreads.length*2;
@@ -257,7 +292,7 @@ async function buildRoom() {
     album.rotation.set(.52*amount,.12,0);
     frontHinge.rotation.z=Math.PI*amount;
     frontHinge.position.y=.23-.10*amount;
-    pageMeshes[0].visible=amount>.76;
+    pageMeshes[0].visible=spread>0&&amount>.76;
     // The inside page sits above the fully opened front cover.
     pageMeshes[0].position.y=0;
   }
@@ -285,6 +320,7 @@ async function buildRoom() {
       turningFront.material.map=pageCache[dest][1].tex;
       turningBack.material.map=pageCache[spread][0].tex;
       pageMeshes[0].material.map=pageCache[dest][0].tex;
+      pageMeshes[0].visible=dest>0;
     }
     poseTurningSheet(direction>0?0:Math.PI);turningPage.visible=true;
     refreshAlbumHud();
@@ -404,12 +440,12 @@ async function buildRoom() {
   function pick(e){
     if(!ready||flight)return null;
     const r=canvas.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,camera);
-    if(activeScene===1){const candidates=albumState==='closed'?[albumHit]:albumState==='open'?pageMeshes:[];return raycaster.intersectObjects(candidates).find(hit=>hit.object.visible)?.object||null;}
+    if(activeScene===1){const candidates=albumState==='closed'?[albumHit]:albumState==='open'?pageMeshes:[];const hit=raycaster.intersectObjects(candidates).find(hit=>hit.object.visible);if(hit)hit.object.userData.hitUV=hit.uv;return hit?.object||null;}
     return raycaster.intersectObjects(interactives).find(hit=>hit.object.visible)?.object||null;
   }
-  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;}else{albumHovered=hit===albumHit;canvas.style.cursor=hit?'pointer':'default';}});
+  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;}else{albumHovered=hit===albumHit;canvas.style.cursor=hit&&(hit===albumHit||albumPageAction(hit,hit.userData.hitUV))?'pointer':'default';}});
   canvas.addEventListener('pointerleave',()=>{setHover(null);albumHovered=false;canvas.style.cursor='default';});
-  canvas.addEventListener('click',e=>{const hit=pick(e);if(!hit)return;if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open')turnPage(hit.userData.pageSide===0?-1:1);});
+  canvas.addEventListener('click',e=>{const hit=pick(e);if(!hit)return;if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open'){const action=albumPageAction(hit,hit.userData.hitUV);if(action?.direction)turnPage(action.direction);else if(action?.photo!==undefined)openAlbumPhoto(action.photo);}});
   const descriptionPanel=document.createElement('aside');
   descriptionPanel.id='item-description';descriptionPanel.hidden=true;
   descriptionPanel.setAttribute('role','dialog');descriptionPanel.setAttribute('aria-labelledby','item-description-title');
@@ -472,6 +508,7 @@ async function buildRoom() {
   }
   descriptionPanel.querySelector('button').onclick=returnToCabinet;
   addEventListener('keydown',e=>{
+    if(photoModal.open)return;
     if(focusState){if(e.key==='Escape'){e.preventDefault();returnToCabinet();}return;}
     if(e.key==='Escape'&&albumState==='open'){closeAlbum();return;}
     if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();if(albumState==='open')turnPage(e.key==='ArrowRight'?1:-1);else switchScene();}
