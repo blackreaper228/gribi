@@ -505,7 +505,17 @@ async function buildRoom() {
   }
   canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;const action=hit&&hit!==albumHit&&hit!==albumCloseHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#100e09':'#342b1d');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||action)?'pointer':'default';}});
   canvas.addEventListener('pointerleave',()=>{highlightAlbumAction(null,null);setHover(null);albumHovered=false;canvas.style.cursor='default';});
-  canvas.addEventListener('click',e=>{const hit=pick(e);if(!hit)return;if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open'){if(hit===albumCloseHit){closeAlbum();return;}const action=albumPageAction(hit,hit.userData.hitUV);if(action?.direction)turnPage(action.direction);else if(action?.photo!==undefined)openAlbumPhoto(action.photo);}});
+  canvas.addEventListener('click',e=>{const hit=pick(e);if(!hit){
+      if(ready&&!flight&&activeScene===1&&albumState==='open'&&!photoModal.open){
+        const onBook=raycaster.intersectObject(album,true).some(({object})=>{
+          if(object===albumHit||object===albumCloseHit)return false;
+          for(let node=object;node&&node!==album.parent;node=node.parent)if(!node.visible)return false;
+          return true;
+        });
+        if(!onBook)closeAlbum();
+      }
+      return;
+    }if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open'){if(hit===albumCloseHit){closeAlbum();return;}const action=albumPageAction(hit,hit.userData.hitUV);if(action?.direction)turnPage(action.direction);else if(action?.photo!==undefined)openAlbumPhoto(action.photo);}});
   const descriptionPanel=document.createElement('aside');
   descriptionPanel.id='item-description';descriptionPanel.hidden=true;
   descriptionPanel.setAttribute('role','dialog');descriptionPanel.setAttribute('aria-labelledby','item-description-title');

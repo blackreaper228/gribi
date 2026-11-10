@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#11120e">
   <meta name="description" content="Небольшая комната с вещами и воспоминаниями. Два ракурса, один личный архив.">
   <title>Вещи — комната воспоминаний</title>
-  <link rel="stylesheet" href="room.css?v=object-tune-1">
+  <link rel="stylesheet" href="room.css?v=loader-outside-close-1">
 </head>
 <body>
   <main id="room" aria-label="Трёхмерная комната воспоминаний">
     <canvas id="view" aria-label="Шкаф с предметами и столик с фотоальбомом"></canvas>
     <div class="frame" aria-hidden="true"></div>
     <div class="scene-note" style="display:none" aria-hidden="true"><span id="scene-number">01 / 02</span><span id="scene-kind">ЛИЧНЫЙ АРХИВ</span></div>
-    <div id="loading" role="status"><span class="loading-mark">✳</span><span id="loading-text">Включаем свет…</span><div class="loading-line"><i></i></div></div>
+    <div id="loading" role="status"><span id="loading-text">включаем свет</span><div class="loading-line"><i></i></div></div>
     <div id="error" hidden role="alert"><h1>Не удалось открыть комнату</h1><p>Для этой галереи нужен WebGL. Попробуйте обновить страницу или открыть её в другом браузере.</p><button onclick="location.reload()">Попробовать ещё раз</button></div>
     <nav class="scene-nav" aria-label="Переключение сцен">
       <button id="scene-prev" aria-label="Предыдущая сцена" disabled><svg viewBox="0 0 23 16" aria-hidden="true"><path d="M0.0044004 0.0227228C4.35375 -0.0239718 8.81376 0.0140651 13.17 0.0246217L13.1746 3.24862L19.8171 3.25096L19.8194 6.47457L23 6.47831V9.5567L19.8194 9.56094L19.8171 12.7788L13.1746 12.7875C13.1556 13.8357 13.1712 14.9433 13.17 15.9955L9.76119 15.9972L0.00901532 16C-0.00885004 14.9475 0.00555301 13.8441 0.0044004 12.7881C2.16611 12.7484 4.49264 12.7855 6.6653 12.7856L6.66242 9.56111L13.1758 9.5601L13.1723 6.4739C11.0273 6.4491 8.81491 6.47267 6.66588 6.47284L6.66184 3.24817H0.00843846L0.0044004 0.0227228Z" fill="#E9E3CE"/></svg></button>
@@ -28,6 +28,6 @@
   </dialog>
   <noscript>Чтобы посмотреть 3D-галерею, включите JavaScript.</noscript>
   <!-- Image and dependency attribution: CREDITS.md -->
-  <script type="module" src="room.js?v=photo-modal-animation-1"></script>
+  <script type="module" src="room.js?v=loader-outside-close-1"></script>
 </body>
 </html>

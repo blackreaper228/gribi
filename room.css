@@ -85,3 +85,7 @@
 @media(min-width:701px){#item-description .item-modal-copy{margin-left:40%;width:50%}}
 @media(min-width:701px) and (max-width:1100px){#item-description .item-modal-photo{width:29vw}#item-description .item-modal-copy{margin-left:40%;width:53%}}
 @media(max-width:700px){.scene-nav svg{width:26px;height:18px}#item-description .item-modal-photo{width:78vw;height:46dvh;max-height:none}}
+
+#loading{background:#000}
+#loading .loading-mark{display:none}
+#loading-text{font:clamp(25px,2vw,38px)/1.2 'Harry Potter Kudos',Georgia,serif;letter-spacing:0}
