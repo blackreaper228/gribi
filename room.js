@@ -429,7 +429,7 @@ async function buildRoom() {
   const cordHit=new THREE.Mesh(new THREE.BoxGeometry(.22,.56,.22),new THREE.MeshBasicMaterial({visible:false}));cordHit.position.y=-.21;lampCord.add(cordHit);
   let lampOn=true,lampPullStart=-Infinity;
   let lampAudio=null;
-  function playLampClick(){
+  function playLampClick(on=lampOn){
     const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
     try{
       lampAudio??=new Audio();
@@ -440,7 +440,7 @@ async function buildRoom() {
         const buffer=lampAudio.createBuffer(1,Math.ceil(rate*duration),rate),data=buffer.getChannelData(0);
         for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/data.length,3);
         const source=lampAudio.createBufferSource(),filter=lampAudio.createBiquadFilter(),gain=lampAudio.createGain();
-        source.buffer=buffer;filter.type='bandpass';filter.frequency.value=lampOn?1800:1400;filter.Q.value=.7;gain.gain.value=volume;
+        source.buffer=buffer;filter.type='bandpass';filter.frequency.value=on?1800:1400;filter.Q.value=.7;gain.gain.value=volume;
         source.connect(filter);filter.connect(gain);gain.connect(lampAudio.destination);
         source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};source.start(now+delay);
       }
@@ -450,7 +450,26 @@ async function buildRoom() {
     lampOn=!lampOn;lampPullStart=performance.now();playLampClick();
     bulb.material.color.set(lampOn?'#fff1b4':'#514a36');
   }
+  const floorLamp=new THREE.Group();floorLamp.position.set(-6.15,0,.45);world.add(floorLamp);
+  cylinder(floorLamp,.40,.46,.10,0,.08,0,brass);
+  cylinder(floorLamp,.035,.035,2.98,0,1.61,0,brass);
+  cylinder(floorLamp,.30,.62,.55,0,3.35,0,mat('#626d4b'));
+  const floorBulb=new THREE.Mesh(new THREE.SphereGeometry(.10,8,6),new THREE.MeshBasicMaterial({color:'#fff1b4'}));floorBulb.position.set(0,3.08,0);floorLamp.add(floorBulb);
+  const floorLight=new THREE.PointLight('#ffd990',20,8,2);floorLight.position.set(0,3.02,.08);floorLamp.add(floorLight);
+  contactShadow(world,-6.15,.06,.45,1.25,1.25);
+  const floorCord=new THREE.Group();floorCord.position.set(.25,3.13,.16);floorLamp.add(floorCord);
+  cylinder(floorCord,.014,.014,.46,0,-.23,0,cordMaterial,6);
+  const floorKnob=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),mat('#a78c54'));floorKnob.position.y=-.50;floorCord.add(floorKnob);
+  const floorCordHit=new THREE.Mesh(new THREE.BoxGeometry(.24,.64,.24),new THREE.MeshBasicMaterial({visible:false}));floorCordHit.position.y=-.25;floorCord.add(floorCordHit);interactives.push(floorCordHit);
+  let floorLampOn=true,floorPullStart=-Infinity;
+  function toggleFloorLamp(){
+    floorLampOn=!floorLampOn;floorPullStart=performance.now();playLampClick(floorLampOn);
+    floorBulb.material.color.set(floorLampOn?'#fff1b4':'#514a36');
+  }
   function animateLamp(now){
+    floorLight.intensity=THREE.MathUtils.lerp(floorLight.intensity,floorLampOn?20:0,.18);
+    const ft=Math.min(1,(now-floorPullStart)/500);
+    floorCord.position.y=3.13-(reducedMotion.matches?0:Math.sin(ft*Math.PI)*.08);
     lampLight.intensity=THREE.MathUtils.lerp(lampLight.intensity,lampOn?13:0,.18);
     const t=Math.min(1,(now-lampPullStart)/500);
     lampCord.position.y=2.23-(reducedMotion.matches?0:Math.sin(t*Math.PI)*.08);
@@ -541,7 +560,7 @@ async function buildRoom() {
     if(activeScene===1){const candidates=albumState==='closed'?[cordHit,albumHit]:albumState==='open'?[cordHit,albumCloseHit,...pageMeshes]:[];const hit=raycaster.intersectObjects(candidates).find(hit=>hit.object.visible);if(hit)hit.object.userData.hitUV=hit.uv;return hit?.object||null;}
     return raycaster.intersectObjects(interactives).find(hit=>hit.object.visible)?.object||null;
   }
-  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(activeScene===0){setHover(hit);albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;cordKnob.material.color.set(hit===cordHit?'#ffe3a0':'#a78c54');const action=hit&&hit!==albumHit&&hit!==albumCloseHit&&hit!==cordHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#100e09':'#342b1d');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||hit===cordHit||action)?'pointer':'default';}});
+  canvas.addEventListener('pointermove',e=>{const hit=pick(e);floorKnob.material.color.set(hit===floorCordHit?'#ffe3a0':'#a78c54');if(activeScene===0){setHover(hit===floorCordHit?null:hit);if(hit===floorCordHit)canvas.style.cursor='pointer';albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;cordKnob.material.color.set(hit===cordHit?'#ffe3a0':'#a78c54');const action=hit&&hit!==albumHit&&hit!==albumCloseHit&&hit!==cordHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#100e09':'#342b1d');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||hit===cordHit||action)?'pointer':'default';}});
   canvas.addEventListener('pointerleave',()=>{highlightAlbumAction(null,null);setHover(null);albumHovered=false;canvas.style.cursor='default';});
   canvas.addEventListener('click',e=>{const hit=pick(e);if(!hit){
       if(ready&&!flight&&activeScene===1&&albumState==='open'&&!photoModal.open){
@@ -553,7 +572,7 @@ async function buildRoom() {
         if(!onBook)closeAlbum();
       }
       return;
-    }if(hit===cordHit){toggleLamp();return;}if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open'){if(hit===albumCloseHit){closeAlbum();return;}const action=albumPageAction(hit,hit.userData.hitUV);if(action?.direction)turnPage(action.direction);else if(action?.photo!==undefined)openAlbumPhoto(action.photo);}});
+    }if(hit===floorCordHit){toggleFloorLamp();return;}if(hit===cordHit){toggleLamp();return;}if(activeScene===0)openItem(hit.userData.item);else if(albumState==='closed')openAlbum();else if(albumState==='open'){if(hit===albumCloseHit){closeAlbum();return;}const action=albumPageAction(hit,hit.userData.hitUV);if(action?.direction)turnPage(action.direction);else if(action?.photo!==undefined)openAlbumPhoto(action.photo);}});
   const descriptionPanel=document.createElement('aside');
   descriptionPanel.id='item-description';descriptionPanel.hidden=true;
   descriptionPanel.setAttribute('role','dialog');descriptionPanel.setAttribute('aria-labelledby','item-description-title');
@@ -591,7 +610,7 @@ async function buildRoom() {
       if(ctx.state==='suspended')ctx.resume().catch(()=>{});
       // Interrupt an unfinished swish when a camera flight is replaced.
       if(cameraWhoosh){try{cameraWhoosh.stop();}catch{}}
-      const duration=sceneChange?.24:.42,now=ctx.currentTime,buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*duration),ctx.sampleRate),data=buffer.getChannelData(0);
+      const duration=sceneChange?2.2:.65,now=ctx.currentTime,buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*duration),ctx.sampleRate),data=buffer.getChannelData(0);
       let smooth=0;
       for(let i=0;i<data.length;i++){smooth=.92*smooth+.08*(Math.random()*2-1);data[i]=smooth;}
       const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
