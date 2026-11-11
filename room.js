@@ -76,11 +76,6 @@ async function buildRoom() {
     const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,segments),material);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;
   }
   const room=document.querySelector('#room');
-  const entryDialog=document.querySelector('#entry-code');
-  const entryForm=entryDialog.querySelector('form');
-  const entryInput=entryForm.querySelector('input');
-  const entryError=entryForm.querySelector('[role="status"]');
-  const entryButton=document.querySelector('#entry-button');
   const doorway=new THREE.Group();
   scene.add(doorway);
   const doorX=-2.15,doorZ=16,doorWidth=3.2,doorHeight=4.9;
@@ -100,46 +95,127 @@ async function buildRoom() {
   const entryLight=new THREE.PointLight('#ffe5b4',35,14,2);
   entryLight.position.set(doorX-1,5,doorZ+3);
   doorway.add(entryLight);
+  // The posters are painted as textures so they sit in the pixelated scene.
+  function hangPoster(x,title,spider){
+    const art=textureCanvas(256,384,(ctx,w,h)=>{
+      const gradient=ctx.createLinearGradient(0,0,0,h);
+      gradient.addColorStop(0,spider?'#111c36':'#421b1b');
+      gradient.addColorStop(1,spider?'#ae252d':'#cf6936');
+      ctx.fillStyle=gradient;ctx.fillRect(0,0,w,h);
+      if(spider){
+        ctx.strokeStyle='#d2c9b870';ctx.lineWidth=2;
+        for(let i=0;i<12;i++){const t=i*Math.PI/6;ctx.beginPath();ctx.moveTo(128,158);ctx.lineTo(128+280*Math.cos(t),158+280*Math.sin(t));ctx.stroke();}
+        for(let r=34;r<230;r+=32){ctx.beginPath();ctx.arc(128,158,r,0,Math.PI*2);ctx.stroke();}
+        ctx.fillStyle='#a91c2d';ctx.beginPath();ctx.ellipse(128,161,62,82,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#221521';ctx.lineWidth=4;ctx.stroke();
+        for(const sign of [-1,1]){
+          ctx.fillStyle='#f2e7d2';ctx.beginPath();ctx.moveTo(128+sign*9,167);ctx.quadraticCurveTo(128+sign*34,135,128+sign*51,129);ctx.quadraticCurveTo(128+sign*49,183,128+sign*9,167);ctx.fill();ctx.stroke();
+        }
+      }else{
+        ctx.fillStyle='#f1a14d';ctx.beginPath();ctx.arc(128,146,73,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#a13f29';ctx.beginPath();ctx.moveTo(0,216);ctx.quadraticCurveTo(145,160,256,242);ctx.lineTo(256,384);ctx.lineTo(0,384);ctx.fill();
+        ctx.fillStyle='#281a1a';ctx.beginPath();ctx.moveTo(128,204);ctx.lineTo(112,246);ctx.lineTo(101,302);ctx.lineTo(151,302);ctx.lineTo(141,247);ctx.closePath();ctx.fill();ctx.beginPath();ctx.arc(128,204,10,0,Math.PI*2);ctx.fill();
+      }
+      ctx.fillStyle='#fff0cd';ctx.font=spider?'bold 31px sans-serif':'bold 59px serif';ctx.textAlign='center';ctx.fillText(title,128,350);
+    });
+    box(doorway,1.82,2.63,.08,x,2.8,doorZ+.19,darkWood);
+    const poster=new THREE.Mesh(new THREE.PlaneGeometry(1.68,2.48),new THREE.MeshBasicMaterial({map:art,color:'#cec0a5'}));
+    poster.position.set(x,2.8,doorZ+.24);doorway.add(poster);
+  }
+  hangPoster(left-1.35,'SPIDER-MAN',true);
+  hangPoster(right+1.35,'DUNE',false);
+  const wirePoints=[];
+  for(let i=0;i<=48;i++){
+    const t=i/48,x=doorX+(t-.5)*9,y=5.85-.58*Math.sin(Math.PI*t);
+    wirePoints.push(new THREE.Vector3(x,y,doorZ+.26));
+    if(i%3===0){
+      const glow=new THREE.Mesh(new THREE.SphereGeometry(.063,8,6),new THREE.MeshBasicMaterial({color:i%2?'#ffdc8a':'#ffab67'}));
+      glow.position.set(x,y-.055,doorZ+.28);doorway.add(glow);
+      const halo=new THREE.Mesh(new THREE.SphereGeometry(.13,8,6),new THREE.MeshBasicMaterial({color:'#ffc66a',transparent:true,opacity:.16,depthWrite:false,blending:THREE.AdditiveBlending}));
+      halo.position.copy(glow.position);doorway.add(halo);
+    }
+  }
+  doorway.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(wirePoints),new THREE.LineBasicMaterial({color:'#31251d'})));
+  const doorSurfaces=hinge.children.map(mesh=>({mesh,material:mesh.material.clone()}));
+  doorSurfaces.forEach(({mesh,material})=>{mesh.material=material;});
+  function highlightDoor(active){
+    for(const {material} of doorSurfaces){material.emissive.set('#dfad63');material.emissiveIntensity=active?.24:0;}
+  }
+  const keypadX=doorWidth-.47,keypadY=2.97,keypadZ=.24;
+  const keypadWidth=.64,keypadHeight=.94;
+  box(hinge,keypadWidth+.05,keypadHeight+.05,.12,keypadX,keypadY,.16,darkWood);
+  let code='',codeError=false;
+  const keys=['1','2','3','4','5','6','7','8','9','×','0','⌫'];
+  const keypadTexture=textureCanvas(256,376,()=>{});
+  const keypad=new THREE.Mesh(new THREE.PlaneGeometry(keypadWidth,keypadHeight),new THREE.MeshBasicMaterial({map:keypadTexture}));
+  keypad.position.set(keypadX,keypadY,keypadZ);hinge.add(keypad);
+  let activeKey=-1;
+  function drawKeypad(){
+    const ctx=keypadTexture.image.getContext('2d');
+    ctx.fillStyle='#292820';ctx.fillRect(0,0,256,376);
+    ctx.fillStyle='#111510';ctx.fillRect(14,14,228,69);
+    ctx.fillStyle=codeError?'#ff795e':'#e2d4a5';ctx.font='bold 28px monospace';ctx.textAlign='center';
+    ctx.fillText(codeError?'НЕВЕРНО':code.padEnd(6,'–'),128,59);
+    keys.forEach((key,i)=>{
+      const x=14+(i%3)*77,y=96+Math.floor(i/3)*67;
+      ctx.fillStyle=i===activeKey?'#aa8250':'#575042';ctx.fillRect(x,y,68,56);
+      ctx.fillStyle='#fff0ce';ctx.font='bold 31px sans-serif';ctx.fillText(key,x+34,y+39);
+    });
+    keypadTexture.needsUpdate=true;
+  }
+  drawKeypad();
+  const keypadTarget=new THREE.Vector3(left+keypadX,keypadY,doorZ+keypadZ);
+  const zoomPosition=new THREE.Vector3(),startPosition=new THREE.Vector3(),startTarget=new THREE.Vector3(),entryLook=new THREE.Vector3();
+  function keyAt(uv){
+    if(!uv)return -1;
+    const x=uv.x*256-14,y=(1-uv.y)*376-96;
+    if(x<0||y<0||x>=231||y>=268||x%77>=68||y%67>=56)return -1;
+    return Math.floor(y/67)*3+Math.floor(x/77);
+  }
   const entryTarget=new THREE.Vector3(doorX,2.6,doorZ);
   let entryState='locked',entryStart=0;
   const entryPosition=new THREE.Vector3();
   document.querySelector('#object-buttons').inert=true;
   function placeEntryCamera(){
-    entryPosition.set(doorX,2.6,doorZ+(camera.aspect<.85?10:7));
+    entryPosition.set(doorX,2.6,doorZ+Math.max(9.6,4.65/(Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*camera.aspect)));
     camera.position.copy(entryPosition);
     camera.lookAt(entryTarget);
   }
   function promptEntry(){
-    if(!ready||entryState!=='locked'||entryDialog.open)return;
-    entryInput.value='';
-    entryError.textContent='';
-    entryDialog.showModal();
-    entryInput.focus();
+    if(!ready||entryState!=='locked')return;
+    entryState='zooming';entryStart=performance.now();
+    highlightDoor(false);
+    zoomPosition.set(keypadTarget.x,keypadTarget.y,keypadTarget.z+Math.max(1.55,1.02/camera.aspect));
   }
-  entryButton.onclick=promptEntry;
-  entryDialog.querySelector('[data-entry-cancel]').onclick=()=>entryDialog.close();
-  entryInput.addEventListener('input',()=>{entryInput.value=entryInput.value.replace(/\D/g,'').slice(0,6);entryError.textContent='';});
-  entryForm.addEventListener('submit',event=>{
-    event.preventDefault();
-    if(entryState!=='locked')return;
-    if(entryInput.value!=='111125'){
-      entryError.textContent='Неверный код';
-      entryInput.select();
+  function enterKey(key){
+    if(entryState!=='keypad')return;
+    if(key==='×'){entryState='back';entryStart=performance.now();code='';codeError=false;drawKeypad();return;}
+    if(key==='⌫'){code=codeError?'':code.slice(0,-1);codeError=false;drawKeypad();return;}
+    if(codeError){code='';codeError=false;}
+    code+=key;
+    if(code.length===6){
+      if(code==='111125'){
+        entryState='entering';room.dataset.entrance='entering';entryStart=performance.now();
+        startPosition.copy(camera.position);startTarget.copy(keypadTarget);
+      }else codeError=true;
+    }
+    drawKeypad();
+  }
+  function animateEntry(now){
+    const elapsed=now-entryStart;
+    if(entryState==='zooming'||entryState==='back'){
+      const p=reducedMotion.matches?1:THREE.MathUtils.smoothstep(elapsed,0,720);
+      const zoom=entryState==='back'?1-p:p;
+      camera.position.lerpVectors(entryPosition,zoomPosition,zoom);
+      camera.lookAt(entryLook.lerpVectors(entryTarget,keypadTarget,zoom));
+      if(p===1)entryState=entryState==='back'?'locked':'keypad';
       return;
     }
-    entryState='entering';
-    room.dataset.entrance='entering';
-    entryStart=performance.now();
-    entryDialog.close();
-  });
-  function animateEntry(now){
     if(entryState!=='entering')return;
-    const elapsed=now-entryStart;
     const opening=reducedMotion.matches?1:THREE.MathUtils.smoothstep(elapsed,0,740);
     hinge.rotation.y=opening*Math.PI*.54;
     const progress=reducedMotion.matches?1:THREE.MathUtils.smoothstep(elapsed,650,2650);
-    camera.position.lerpVectors(entryPosition,positions[0],progress);
-    viewTarget.lerpVectors(entryTarget,targets[0],progress);
+    camera.position.lerpVectors(startPosition,positions[0],progress);
+    viewTarget.lerpVectors(startTarget,targets[0],progress);
     camera.lookAt(viewTarget);
     if(progress===1){
       entryState='inside';
@@ -622,7 +698,7 @@ async function buildRoom() {
   function resize(){
     renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
     const height=Math.min(360,Math.floor(innerHeight*.65)),width=Math.round(height*camera.aspect);target.setSize(width,height);uniforms.resolution.value.set(width,height);
-    cameraStops();if(entryState==='locked'){placeEntryCamera();return;}if(entryState==='entering')return;if(!flight&&!focusState){camera.position.copy(positions[activeScene]);viewTarget.copy(targets[activeScene]);camera.lookAt(viewTarget);}
+    cameraStops();if(entryState==='locked'){placeEntryCamera();return;}if(entryState!=='inside')return;if(!flight&&!focusState){camera.position.copy(positions[activeScene]);viewTarget.copy(targets[activeScene]);camera.lookAt(viewTarget);}
   }
   addEventListener('resize',()=>{if(flight){const complete=flight.complete;flight=null;complete?.();setNavigation(false);}resize();if(focusState?.phase==='open'){const pose=itemCameraPose(focusState.point);camera.position.copy(pose.position);viewTarget.copy(pose.target);camera.lookAt(viewTarget);placeDescription();}});resize();
   function setNavigation(moving){prev.disabled=next.disabled=moving||!ready||entryState!=='inside'||!!focusState||(activeScene===1&&albumState!=='closed');document.querySelector('#room').setAttribute('aria-busy',String(moving));}
@@ -684,13 +760,15 @@ async function buildRoom() {
   function pick(e){
     if(!ready||flight||entryState==='entering')return null;
     const r=canvas.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,camera);
-    if(entryState==='locked')return raycaster.intersectObjects([door,handle,...hinge.children]).length?door:null;
+    if(entryState==='locked')return raycaster.intersectObjects(hinge.children).length?door:null;
+    if(entryState==='keypad'){const hit=raycaster.intersectObject(keypad)[0];const key=keyAt(hit?.uv);if(key!==activeKey){activeKey=key;drawKeypad();}return activeKey>=0?keypad:null;}
+    if(entryState!=='inside')return null;
     if(activeScene===1){const candidates=albumState==='closed'?[cordHit,albumHit]:albumState==='open'?[cordHit,albumCloseHit,...pageMeshes]:[];const hit=raycaster.intersectObjects(candidates).find(hit=>hit.object.visible);if(hit)hit.object.userData.hitUV=hit.uv;return hit?.object||null;}
     return raycaster.intersectObjects(interactives).find(hit=>hit.object.visible)?.object||null;
   }
-  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(entryState!=='inside'){canvas.style.cursor=hit?'pointer':'default';return;}const location=pickLocation();setLocationHover(location);if(location){setHover(null);albumHovered=false;highlightAlbumAction(null,null);canvas.style.cursor='pointer';return;}floorKnob.material.color.set(hit===floorCordHit?'#ffe3a0':'#a78c54');if(activeScene===0){setHover(hit===floorCordHit?null:hit);if(hit===floorCordHit)canvas.style.cursor='pointer';albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;cordKnob.material.color.set(hit===cordHit?'#ffe3a0':'#a78c54');const action=hit&&hit!==albumHit&&hit!==albumCloseHit&&hit!==cordHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#100e09':'#342b1d');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||hit===cordHit||action)?'pointer':'default';}});
-  canvas.addEventListener('pointerleave',()=>{setLocationHover(null);highlightAlbumAction(null,null);setHover(null);albumHovered=false;canvas.style.cursor='default';});
-  canvas.addEventListener('click',e=>{const hit=pick(e);if(entryState!=='inside'){if(hit===door)promptEntry();return;}if(pickLocation()){switchScene();return;}if(!hit){
+  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(entryState!=='inside'){highlightDoor(entryState==='locked'&&hit===door);canvas.style.cursor=hit?'pointer':'default';return;}const location=pickLocation();setLocationHover(location);if(location){setHover(null);albumHovered=false;highlightAlbumAction(null,null);canvas.style.cursor='pointer';return;}floorKnob.material.color.set(hit===floorCordHit?'#ffe3a0':'#a78c54');if(activeScene===0){setHover(hit===floorCordHit?null:hit);if(hit===floorCordHit)canvas.style.cursor='pointer';albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;cordKnob.material.color.set(hit===cordHit?'#ffe3a0':'#a78c54');const action=hit&&hit!==albumHit&&hit!==albumCloseHit&&hit!==cordHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#100e09':'#342b1d');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||hit===cordHit||action)?'pointer':'default';}});
+  canvas.addEventListener('pointerleave',()=>{highlightDoor(false);if(activeKey!==-1){activeKey=-1;drawKeypad();}setLocationHover(null);highlightAlbumAction(null,null);setHover(null);albumHovered=false;canvas.style.cursor='default';});
+  canvas.addEventListener('click',e=>{const hit=pick(e);if(entryState!=='inside'){if(hit===door)promptEntry();else if(hit===keypad)enterKey(keys[activeKey]);return;}if(pickLocation()){switchScene();return;}if(!hit){
       if(ready&&!flight&&activeScene===1&&albumState==='open'&&!photoModal.open){
         const onBook=raycaster.intersectObject(album,true).some(({object})=>{
           if(object===albumHit||object===albumCloseHit)return false;
@@ -797,7 +875,16 @@ async function buildRoom() {
   }
   objectCloseButton.onclick=returnToCabinet;
   addEventListener('keydown',e=>{
-    if(photoModal.open||entryState!=='inside')return;
+    if(entryState!=='inside'){
+      if(entryState==='locked'&&e.key==='Enter')promptEntry();
+      if(entryState==='keypad'){
+        if(/^\d$/.test(e.key))enterKey(e.key);
+        if(e.key==='Backspace')enterKey('⌫');
+        if(e.key==='Escape')enterKey('×');
+      }
+      return;
+    }
+    if(photoModal.open)return;
     if(focusState){if(e.key==='Escape'){e.preventDefault();returnToCabinet();}return;}
     if(e.key==='Escape'&&albumState==='open'){closeAlbum();return;}
     if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();if(albumState==='open')turnPage(e.key==='ArrowRight'?1:-1);else switchScene();}
