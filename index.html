@@ -12,7 +12,6 @@
 <body>
   <main id="room" data-entrance="locked" aria-label="Трёхмерная комната воспоминаний">
     <canvas id="view" aria-label="Шкаф с предметами и столик с фотоальбомом"></canvas>
-    <button id="entry-button" type="button">Открыть дверь</button>
     <div class="frame" aria-hidden="true"></div>
     <div class="scene-note" style="display:none" aria-hidden="true"><span id="scene-number">01 / 02</span><span id="scene-kind">ЛИЧНЫЙ АРХИВ</span></div>
     <div id="loading" role="status"><span id="loading-text">включаем свет</span><div class="loading-line"><i></i></div></div>
@@ -28,17 +27,8 @@
     <button class="close" aria-label="Закрыть">×</button>
     <div class="detail-layout"><div class="detail-image"><img id="detail-photo" alt=""></div><div class="detail-copy"><h2 id="detail-title"></h2><p id="detail-description"></p></div></div>
   </dialog>
-  <dialog id="entry-code" aria-labelledby="entry-title">
-    <form>
-      <button type="button" data-entry-cancel aria-label="Закрыть">×</button>
-      <h2 id="entry-title">Введи код</h2>
-      <input aria-label="Шестизначный код" type="text" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••••">
-      <p role="status"></p>
-      <button type="submit">Войти</button>
-    </form>
-  </dialog>
   <noscript>Чтобы посмотреть 3D-галерею, включите JavaScript.</noscript>
   <!-- Image and dependency attribution: CREDITS.md -->
-  <script type="module" src="room.js?v=door-entry-1"></script>
+  <script type="module" src="room.js?v=door-keypad-1"></script>
 </body>
 </html>
