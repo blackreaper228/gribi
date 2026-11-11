@@ -92,3 +92,14 @@
 
 #loading .loading-line{width:min(560px,calc(100vw - 64px));height:2px;background:#ffffff26}
 #loading .loading-line i{height:2px;background:#fff}
+
+#room[data-entrance] .scene-nav{visibility:hidden;pointer-events:none}
+#entry-button{display:none;position:absolute;left:50%;bottom:max(40px,env(safe-area-inset-bottom));transform:translateX(-50%);padding:10px 18px;background:#171910db;border:1px solid #c2b28b;color:#e9e3ce;font:22px 'Harry Potter Kudos',Georgia,serif}
+body[data-ready="true"] #room[data-entrance="locked"] #entry-button{display:block}
+#entry-code{width:min(360px,calc(100vw - 32px));padding:30px;background:#242519;color:#e9e3ce;border:1px solid #9b8965}
+#entry-code form{display:grid;gap:14px}
+#entry-code h2{font:30px 'Harry Potter Kudos',Georgia,serif;margin:0}
+#entry-code input{box-sizing:border-box;width:100%;padding:10px;background:#10110d;color:inherit;border:1px solid #a18d68;font:25px monospace;letter-spacing:.35em;text-align:center}
+#entry-code [role="status"]{min-height:1.2em;margin:0;color:#efac96}
+#entry-code button{background:transparent;border:1px solid #9b8965;color:inherit;padding:9px;font:20px 'Harry Potter Kudos',Georgia,serif}
+#entry-code [data-entry-cancel]{position:absolute;top:5px;right:8px;border:0;font:26px Arial}

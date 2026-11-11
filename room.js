@@ -75,6 +75,80 @@ async function buildRoom() {
   function cylinder(parent,rt,rb,h,x,y,z,material,segments=12){
     const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,segments),material);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;
   }
+  const room=document.querySelector('#room');
+  const entryDialog=document.querySelector('#entry-code');
+  const entryForm=entryDialog.querySelector('form');
+  const entryInput=entryForm.querySelector('input');
+  const entryError=entryForm.querySelector('[role="status"]');
+  const entryButton=document.querySelector('#entry-button');
+  const doorway=new THREE.Group();
+  scene.add(doorway);
+  const doorX=-2.15,doorZ=16,doorWidth=3.2,doorHeight=4.9;
+  const left=doorX-doorWidth/2,right=doorX+doorWidth/2;
+  box(doorway,left+10,12,.3,(left-10)/2,6,doorZ,wallMat);
+  box(doorway,10-right,12,.3,(right+10)/2,6,doorZ,wallMat);
+  box(doorway,doorWidth,12-doorHeight,.3,doorX,(12+doorHeight)/2,doorZ,wallMat);
+  box(doorway,20,.15,13,0,-.09,20,darkWood,false);
+  for(const x of [left,right])box(doorway,.18,doorHeight+.18,.38,x,doorHeight/2,doorZ,edgeWood);
+  box(doorway,doorWidth+.18,.18,.38,doorX,doorHeight,doorZ,edgeWood);
+  const hinge=new THREE.Group();
+  hinge.position.set(left,0,doorZ);
+  doorway.add(hinge);
+  const door=box(hinge,doorWidth-.16,doorHeight-.15,.16,doorWidth/2,doorHeight/2,0,walnut);
+  for(const y of [1.2,3.55])box(hinge,2.42,1.75,.08,doorWidth/2,y,.1,darkWood);
+  const handle=box(hinge,.27,.09,.19,doorWidth-.43,2.35,.17,brass);
+  const entryLight=new THREE.PointLight('#ffe5b4',35,14,2);
+  entryLight.position.set(doorX-1,5,doorZ+3);
+  doorway.add(entryLight);
+  const entryTarget=new THREE.Vector3(doorX,2.6,doorZ);
+  let entryState='locked',entryStart=0;
+  const entryPosition=new THREE.Vector3();
+  document.querySelector('#object-buttons').inert=true;
+  function placeEntryCamera(){
+    entryPosition.set(doorX,2.6,doorZ+(camera.aspect<.85?10:7));
+    camera.position.copy(entryPosition);
+    camera.lookAt(entryTarget);
+  }
+  function promptEntry(){
+    if(!ready||entryState!=='locked'||entryDialog.open)return;
+    entryInput.value='';
+    entryError.textContent='';
+    entryDialog.showModal();
+    entryInput.focus();
+  }
+  entryButton.onclick=promptEntry;
+  entryDialog.querySelector('[data-entry-cancel]').onclick=()=>entryDialog.close();
+  entryInput.addEventListener('input',()=>{entryInput.value=entryInput.value.replace(/\D/g,'').slice(0,6);entryError.textContent='';});
+  entryForm.addEventListener('submit',event=>{
+    event.preventDefault();
+    if(entryState!=='locked')return;
+    if(entryInput.value!=='111125'){
+      entryError.textContent='Неверный код';
+      entryInput.select();
+      return;
+    }
+    entryState='entering';
+    room.dataset.entrance='entering';
+    entryStart=performance.now();
+    entryDialog.close();
+  });
+  function animateEntry(now){
+    if(entryState!=='entering')return;
+    const elapsed=now-entryStart;
+    const opening=reducedMotion.matches?1:THREE.MathUtils.smoothstep(elapsed,0,740);
+    hinge.rotation.y=opening*Math.PI*.54;
+    const progress=reducedMotion.matches?1:THREE.MathUtils.smoothstep(elapsed,650,2650);
+    camera.position.lerpVectors(entryPosition,positions[0],progress);
+    viewTarget.lerpVectors(entryTarget,targets[0],progress);
+    camera.lookAt(viewTarget);
+    if(progress===1){
+      entryState='inside';
+      delete room.dataset.entrance;
+      scene.remove(doorway);
+      document.querySelector('#object-buttons').inert=false;
+      setNavigation(false);
+    }
+  }
   // One continuous room. Navigation changes only the camera's fixed viewpoint.
   box(world,20,.15,18,0,-.09,5,darkWood,false);
   for(let i=-10;i<10;i++)for(let j=-2;j<10;j++){
@@ -548,10 +622,10 @@ async function buildRoom() {
   function resize(){
     renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
     const height=Math.min(360,Math.floor(innerHeight*.65)),width=Math.round(height*camera.aspect);target.setSize(width,height);uniforms.resolution.value.set(width,height);
-    cameraStops();if(!flight&&!focusState){camera.position.copy(positions[activeScene]);viewTarget.copy(targets[activeScene]);camera.lookAt(viewTarget);}
+    cameraStops();if(entryState==='locked'){placeEntryCamera();return;}if(entryState==='entering')return;if(!flight&&!focusState){camera.position.copy(positions[activeScene]);viewTarget.copy(targets[activeScene]);camera.lookAt(viewTarget);}
   }
   addEventListener('resize',()=>{if(flight){const complete=flight.complete;flight=null;complete?.();setNavigation(false);}resize();if(focusState?.phase==='open'){const pose=itemCameraPose(focusState.point);camera.position.copy(pose.position);viewTarget.copy(pose.target);camera.lookAt(viewTarget);placeDescription();}});resize();
-  function setNavigation(moving){prev.disabled=next.disabled=moving||!ready||!!focusState||(activeScene===1&&albumState!=='closed');document.querySelector('#room').setAttribute('aria-busy',String(moving));}
+  function setNavigation(moving){prev.disabled=next.disabled=moving||!ready||entryState!=='inside'||!!focusState||(activeScene===1&&albumState!=='closed');document.querySelector('#room').setAttribute('aria-busy',String(moving));}
   function updateCaption(){
     document.querySelector('#scene-title').textContent=activeScene===0?'Шкаф':'Альбом';
     document.querySelector('#scene-subtitle').textContent='%ВСТАВИТЬ_ТЕКСТ%';
@@ -561,7 +635,7 @@ async function buildRoom() {
     document.querySelector('#object-buttons').hidden=activeScene!==0;albumAccess.hidden=activeScene!==1;
   }
   function switchScene(){
-    if(flight||!ready||focusState||albumState!=='closed')return;
+    if(flight||!ready||entryState!=='inside'||focusState||albumState!=='closed')return;
     setLocationHover(null);
     const from=camera.position.clone(),fromTarget=viewTarget.clone();activeScene=1-activeScene;updateCaption();
     if(reducedMotion.matches){camera.position.copy(positions[activeScene]);viewTarget.copy(targets[activeScene]);camera.lookAt(viewTarget);return;}
@@ -597,7 +671,7 @@ async function buildRoom() {
     if(group)for(const m of locationMaterials.get(group)){m.material.emissive.set('#b9a26d');m.material.emissiveIntensity=.18;}
   }
   function pickLocation(){
-    if(!ready||flight||focusState||albumState!=='closed')return null;
+    if(!ready||flight||entryState!=='inside'||focusState||albumState!=='closed')return null;
     const hit=raycaster.intersectObjects([cabinet,table],true).find(({object})=>{
       if(object.material?.visible===false)return false;
       for(let n=object;n&&n!==world;n=n.parent)if(!n.visible)return false;
@@ -608,14 +682,15 @@ async function buildRoom() {
     return root===(activeScene===0?table:cabinet)?root:null;
   }
   function pick(e){
-    if(!ready||flight)return null;
+    if(!ready||flight||entryState==='entering')return null;
     const r=canvas.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,camera);
+    if(entryState==='locked')return raycaster.intersectObjects([door,handle,...hinge.children]).length?door:null;
     if(activeScene===1){const candidates=albumState==='closed'?[cordHit,albumHit]:albumState==='open'?[cordHit,albumCloseHit,...pageMeshes]:[];const hit=raycaster.intersectObjects(candidates).find(hit=>hit.object.visible);if(hit)hit.object.userData.hitUV=hit.uv;return hit?.object||null;}
     return raycaster.intersectObjects(interactives).find(hit=>hit.object.visible)?.object||null;
   }
-  canvas.addEventListener('pointermove',e=>{const hit=pick(e),location=pickLocation();setLocationHover(location);if(location){setHover(null);albumHovered=false;highlightAlbumAction(null,null);canvas.style.cursor='pointer';return;}floorKnob.material.color.set(hit===floorCordHit?'#ffe3a0':'#a78c54');if(activeScene===0){setHover(hit===floorCordHit?null:hit);if(hit===floorCordHit)canvas.style.cursor='pointer';albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;cordKnob.material.color.set(hit===cordHit?'#ffe3a0':'#a78c54');const action=hit&&hit!==albumHit&&hit!==albumCloseHit&&hit!==cordHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#100e09':'#342b1d');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||hit===cordHit||action)?'pointer':'default';}});
+  canvas.addEventListener('pointermove',e=>{const hit=pick(e);if(entryState!=='inside'){canvas.style.cursor=hit?'pointer':'default';return;}const location=pickLocation();setLocationHover(location);if(location){setHover(null);albumHovered=false;highlightAlbumAction(null,null);canvas.style.cursor='pointer';return;}floorKnob.material.color.set(hit===floorCordHit?'#ffe3a0':'#a78c54');if(activeScene===0){setHover(hit===floorCordHit?null:hit);if(hit===floorCordHit)canvas.style.cursor='pointer';albumHovered=false;highlightAlbumAction(null,null);}else{albumHovered=hit===albumHit;cordKnob.material.color.set(hit===cordHit?'#ffe3a0':'#a78c54');const action=hit&&hit!==albumHit&&hit!==albumCloseHit&&hit!==cordHit?albumPageAction(hit,hit.userData.hitUV):null;albumCloseMark.material.color.set(hit===albumCloseHit?'#100e09':'#342b1d');albumCloseMark.scale.setScalar(hit===albumCloseHit?1.15:1);highlightAlbumAction(hit,action);canvas.style.cursor=hit&&(hit===albumHit||hit===albumCloseHit||hit===cordHit||action)?'pointer':'default';}});
   canvas.addEventListener('pointerleave',()=>{setLocationHover(null);highlightAlbumAction(null,null);setHover(null);albumHovered=false;canvas.style.cursor='default';});
-  canvas.addEventListener('click',e=>{const hit=pick(e);if(pickLocation()){switchScene();return;}if(!hit){
+  canvas.addEventListener('click',e=>{const hit=pick(e);if(entryState!=='inside'){if(hit===door)promptEntry();return;}if(pickLocation()){switchScene();return;}if(!hit){
       if(ready&&!flight&&activeScene===1&&albumState==='open'&&!photoModal.open){
         const onBook=raycaster.intersectObject(album,true).some(({object})=>{
           if(object===albumHit||object===albumCloseHit)return false;
@@ -722,7 +797,7 @@ async function buildRoom() {
   }
   objectCloseButton.onclick=returnToCabinet;
   addEventListener('keydown',e=>{
-    if(photoModal.open)return;
+    if(photoModal.open||entryState!=='inside')return;
     if(focusState){if(e.key==='Escape'){e.preventDefault();returnToCabinet();}return;}
     if(e.key==='Escape'&&albumState==='open'){closeAlbum();return;}
     if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();if(albumState==='open')turnPage(e.key==='ArrowRight'?1:-1);else switchScene();}
@@ -745,7 +820,8 @@ async function buildRoom() {
       }else camera.lookAt(viewTarget);
       if(t===1){const complete=flight.complete;flight=null;complete?.();setNavigation(false);}
     }
-    if(!flight&&!focusState&&activeScene===0){
+    animateEntry(now);
+    if(entryState==='inside'&&!flight&&!focusState&&activeScene===0){
       const pose=shelfCameraPose(now);camera.position.copy(pose.position);camera.quaternion.copy(pose.quaternion);viewTarget.copy(targets[0]);
     }
     if(focusState?.phase==='open')placeDescription();
