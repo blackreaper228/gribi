@@ -95,59 +95,87 @@ async function buildRoom() {
   const entryLight=new THREE.PointLight('#ffe5b4',35,14,2);
   entryLight.position.set(doorX-1,5,doorZ+3);
   doorway.add(entryLight);
-  // The posters are painted as textures so they sit in the pixelated scene.
-  function hangPoster(x,title,spider){
-    const art=textureCanvas(256,384,(ctx,w,h)=>{
-      const gradient=ctx.createLinearGradient(0,0,0,h);
-      gradient.addColorStop(0,spider?'#111c36':'#421b1b');
-      gradient.addColorStop(1,spider?'#ae252d':'#cf6936');
-      ctx.fillStyle=gradient;ctx.fillRect(0,0,w,h);
-      if(spider){
-        ctx.strokeStyle='#d2c9b870';ctx.lineWidth=2;
-        for(let i=0;i<12;i++){const t=i*Math.PI/6;ctx.beginPath();ctx.moveTo(128,158);ctx.lineTo(128+280*Math.cos(t),158+280*Math.sin(t));ctx.stroke();}
-        for(let r=34;r<230;r+=32){ctx.beginPath();ctx.arc(128,158,r,0,Math.PI*2);ctx.stroke();}
-        ctx.fillStyle='#a91c2d';ctx.beginPath();ctx.ellipse(128,161,62,82,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#221521';ctx.lineWidth=4;ctx.stroke();
-        for(const sign of [-1,1]){
-          ctx.fillStyle='#f2e7d2';ctx.beginPath();ctx.moveTo(128+sign*9,167);ctx.quadraticCurveTo(128+sign*34,135,128+sign*51,129);ctx.quadraticCurveTo(128+sign*49,183,128+sign*9,167);ctx.fill();ctx.stroke();
-        }
-      }else{
-        ctx.fillStyle='#f1a14d';ctx.beginPath();ctx.arc(128,146,73,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#a13f29';ctx.beginPath();ctx.moveTo(0,216);ctx.quadraticCurveTo(145,160,256,242);ctx.lineTo(256,384);ctx.lineTo(0,384);ctx.fill();
-        ctx.fillStyle='#281a1a';ctx.beginPath();ctx.moveTo(128,204);ctx.lineTo(112,246);ctx.lineTo(101,302);ctx.lineTo(151,302);ctx.lineTo(141,247);ctx.closePath();ctx.fill();ctx.beginPath();ctx.arc(128,204,10,0,Math.PI*2);ctx.fill();
-      }
-      ctx.fillStyle='#fff0cd';ctx.font=spider?'bold 31px sans-serif':'bold 59px serif';ctx.textAlign='center';ctx.fillText(title,128,350);
+  function hangPoster(x,y,rotation,url){
+    const material=new THREE.MeshBasicMaterial({color:'#ded6c3'});
+    const poster=new THREE.Mesh(new THREE.PlaneGeometry(1.68,2.48),material);
+    poster.position.set(x,y,doorZ+.16);
+    poster.rotation.z=rotation;
+    poster.visible=false;
+    doorway.add(poster);
+    new THREE.TextureLoader().setCrossOrigin('anonymous').load(url,texture=>{
+      texture.colorSpace=THREE.SRGBColorSpace;
+      material.map=texture;
+      material.needsUpdate=true;
+      poster.visible=true;
     });
-    box(doorway,1.82,2.63,.08,x,2.8,doorZ+.19,darkWood);
-    const poster=new THREE.Mesh(new THREE.PlaneGeometry(1.68,2.48),new THREE.MeshBasicMaterial({map:art,color:'#cec0a5'}));
-    poster.position.set(x,2.8,doorZ+.24);doorway.add(poster);
   }
-  hangPoster(left-1.35,'SPIDER-MAN',true);
-  hangPoster(right+1.35,'DUNE',false);
-  const wirePoints=[];
-  for(let i=0;i<=48;i++){
-    const t=i/48,x=doorX+(t-.5)*9,y=5.85-.58*Math.sin(Math.PI*t);
-    wirePoints.push(new THREE.Vector3(x,y,doorZ+.26));
-    if(i%3===0){
-      const glow=new THREE.Mesh(new THREE.SphereGeometry(.063,8,6),new THREE.MeshBasicMaterial({color:i%2?'#ffdc8a':'#ffab67'}));
-      glow.position.set(x,y-.055,doorZ+.28);doorway.add(glow);
-      const halo=new THREE.Mesh(new THREE.SphereGeometry(.13,8,6),new THREE.MeshBasicMaterial({color:'#ffc66a',transparent:true,opacity:.16,depthWrite:false,blending:THREE.AdditiveBlending}));
-      halo.position.copy(glow.position);doorway.add(halo);
+  hangPoster(left-1.42,2.78,.095,'https://image.tmdb.org/t/p/w500/gh4cZbhZxyTbgxQPxD0dOudNPTn.jpg');
+  hangPoster(right+1.35,3.16,-.075,'https://image.tmdb.org/t/p/w500/d5NXSklXo0qyIYkgV94XAgMIckC.jpg');
+
+  const alcoveHalfWidth=4.65,alcoveDepth=5.2,ceilingHeight=6.25;
+  box(doorway,alcoveHalfWidth*2,.18,alcoveDepth,doorX,ceilingHeight+.09,doorZ+alcoveDepth/2,wallMat,false);
+  for(const side of [-1,1]){
+    const sideX=doorX+side*alcoveHalfWidth;
+    box(doorway,.16,ceilingHeight,alcoveDepth,sideX,ceilingHeight/2,doorZ+alcoveDepth/2,wallMat,false);
+    const panelStart=side<0?sideX:right,panelEnd=side<0?left:sideX;
+    const panelWidth=panelEnd-panelStart,panelX=(panelStart+panelEnd)/2;
+    box(doorway,panelWidth,1.1,.12,panelX,.66,doorZ+.20,panelMat,false);
+    box(doorway,panelWidth,.16,.18,panelX,.16,doorZ+.22,trimMat,false);
+    box(doorway,panelWidth,.07,.20,panelX,1.25,doorZ+.24,trimMat,false);
+    for(let x=panelStart+.35;x<panelEnd-.13;x+=1)box(doorway,.045,1,.08,x,.65,doorZ+.29,trimMat,false);
+    const innerX=sideX-side*.12;
+    box(doorway,.12,1.1,alcoveDepth,innerX,.66,doorZ+alcoveDepth/2,panelMat,false);
+    box(doorway,.18,.16,alcoveDepth,innerX,.16,doorZ+alcoveDepth/2,trimMat,false);
+    box(doorway,.20,.07,alcoveDepth,innerX,1.25,doorZ+alcoveDepth/2,trimMat,false);
+    for(let z=doorZ+.7;z<doorZ+alcoveDepth;z+=1)box(doorway,.08,1,.045,innerX-side*.09,.65,z,trimMat,false);
+
+    for(let strand=0;strand<2;strand++){
+      const start=new THREE.Vector3(doorX+side*(.65+strand*.95),ceilingHeight-.03,doorZ+.48+strand*1.15);
+      const end=new THREE.Vector3(sideX-side*.09,4.48+strand*.48,doorZ+.42+strand*1.62);
+      const points=[];
+      for(let i=0;i<=24;i++){
+        const t=i/24,point=start.clone().lerp(end,t);
+        point.y-=.40*Math.sin(Math.PI*t);
+        points.push(point);
+        if(i%3!==0)continue;
+        const bulbPosition=point.clone().add(new THREE.Vector3(0,-.055,0));
+        const bulb=new THREE.Mesh(new THREE.SphereGeometry(.052,8,6),new THREE.MeshBasicMaterial({color:strand?'#ffc485':'#ffe2a0'}));
+        bulb.position.copy(bulbPosition);doorway.add(bulb);
+        const halo=new THREE.Mesh(new THREE.SphereGeometry(.11,8,6),new THREE.MeshBasicMaterial({color:'#ffc66a',transparent:true,opacity:.18,depthWrite:false,blending:THREE.AdditiveBlending}));
+        halo.position.copy(bulbPosition);doorway.add(halo);
+      }
+      doorway.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineBasicMaterial({color:'#31251d'})));
     }
   }
-  doorway.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(wirePoints),new THREE.LineBasicMaterial({color:'#31251d'})));
   const doorSurfaces=hinge.children.map(mesh=>({mesh,material:mesh.material.clone()}));
   doorSurfaces.forEach(({mesh,material})=>{mesh.material=material;});
   function highlightDoor(active){
     for(const {material} of doorSurfaces){material.emissive.set('#dfad63');material.emissiveIntensity=active?.24:0;}
+    keypad.material.color.set(active?'#ffffff':'#c7c1ac');
   }
-  const keypadX=doorWidth-.47,keypadY=2.97,keypadZ=.24;
-  const keypadWidth=.64,keypadHeight=.94;
-  box(hinge,keypadWidth+.05,keypadHeight+.05,.12,keypadX,keypadY,.16,darkWood);
+  const keypadX=doorWidth-.43,keypadY=2.70,keypadZ=.186;
+  const keypadWidth=.30,keypadHeight=.44;
+  const keypadCase=box(hinge,keypadWidth+.025,keypadHeight+.025,.10,keypadX,keypadY,.135,mat('#2b2922'));
+  doorSurfaces.push({mesh:keypadCase,material:keypadCase.material});
   let code='',codeError=false;
   const keys=['1','2','3','4','5','6','7','8','9','×','0','⌫'];
   const keypadTexture=textureCanvas(256,376,()=>{});
   const keypad=new THREE.Mesh(new THREE.PlaneGeometry(keypadWidth,keypadHeight),new THREE.MeshBasicMaterial({map:keypadTexture}));
   keypad.position.set(keypadX,keypadY,keypadZ);hinge.add(keypad);
+  const keyMaterials=keys.map((label,i)=>{
+    const w=68/256*keypadWidth,h=56/376*keypadHeight;
+    const x=keypadX+((14+(i%3)*77+34)/256-.5)*keypadWidth;
+    const y=keypadY+(.5-(96+Math.floor(i/3)*67+28)/376)*keypadHeight;
+    const material=mat('#686050');
+    const key=box(hinge,w,h,.021,x,y,keypadZ+.011,material,false);
+    doorSurfaces.push({mesh:key,material});
+    const labelTexture=textureCanvas(68,56,ctx=>{
+      ctx.fillStyle='#fff0ce';ctx.font='bold 31px sans-serif';ctx.textAlign='center';ctx.fillText(label,34,39);
+    });
+    const face=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:labelTexture,transparent:true,alphaTest:.2}));
+    face.position.set(x,y,keypadZ+.022);hinge.add(face);
+    return material;
+  });
   let activeKey=-1;
   function drawKeypad(){
     const ctx=keypadTexture.image.getContext('2d');
@@ -155,11 +183,7 @@ async function buildRoom() {
     ctx.fillStyle='#111510';ctx.fillRect(14,14,228,69);
     ctx.fillStyle=codeError?'#ff795e':'#e2d4a5';ctx.font='bold 28px monospace';ctx.textAlign='center';
     ctx.fillText(codeError?'НЕВЕРНО':code.padEnd(6,'–'),128,59);
-    keys.forEach((key,i)=>{
-      const x=14+(i%3)*77,y=96+Math.floor(i/3)*67;
-      ctx.fillStyle=i===activeKey?'#aa8250':'#575042';ctx.fillRect(x,y,68,56);
-      ctx.fillStyle='#fff0ce';ctx.font='bold 31px sans-serif';ctx.fillText(key,x+34,y+39);
-    });
+    keyMaterials.forEach((material,i)=>material.color.set(i===activeKey?'#aa8250':'#686050'));
     keypadTexture.needsUpdate=true;
   }
   drawKeypad();
@@ -184,7 +208,7 @@ async function buildRoom() {
     if(!ready||entryState!=='locked')return;
     entryState='zooming';entryStart=performance.now();
     highlightDoor(false);
-    zoomPosition.set(keypadTarget.x,keypadTarget.y,keypadTarget.z+Math.max(1.55,1.02/camera.aspect));
+    zoomPosition.set(keypadTarget.x,keypadTarget.y,keypadTarget.z+Math.max(.84,.50/camera.aspect));
   }
   function enterKey(key){
     if(entryState!=='keypad')return;
@@ -242,6 +266,7 @@ async function buildRoom() {
   box(world,.12,1.1,18,-9.65,.66,5,panelMat,false);
   box(world,.2,.07,18,-9.59,1.25,5,trimMat,false);
   for(let x=-9;x<10;x++)box(world,.045,1.0,.08,x,.65,-.85,trimMat,false);
+  for(let z=-.25;z<14;z++)box(world,.08,1,.045,-9.56,.65,z,trimMat,false);
 
   const cabinet=new THREE.Group();cabinet.position.set(-3,0,0);world.add(cabinet);
   const W=4.45,H=5.35;
