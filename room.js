@@ -95,22 +95,19 @@ async function buildRoom() {
   const entryLight=new THREE.PointLight('#ffe5b4',35,14,2);
   entryLight.position.set(doorX-1,5,doorZ+3);
   doorway.add(entryLight);
-  function hangPoster(x,y,rotation,url){
-    const material=new THREE.MeshBasicMaterial({color:'#ded6c3'});
-    const poster=new THREE.Mesh(new THREE.PlaneGeometry(1.68,2.48),material);
-    poster.position.set(x,y,doorZ+.16);
-    poster.rotation.z=rotation;
-    poster.visible=false;
-    doorway.add(poster);
-    new THREE.TextureLoader().setCrossOrigin('anonymous').load(url,texture=>{
+  function hangPoster(x,y,rotation,width,url){
+    new THREE.TextureLoader().load(url,texture=>{
       texture.colorSpace=THREE.SRGBColorSpace;
-      material.map=texture;
-      material.needsUpdate=true;
-      poster.visible=true;
+      const height=width*texture.image.height/texture.image.width;
+      const poster=new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({map:texture,color:'#ded6c3'}));
+      poster.position.set(x,y,doorZ+.16);
+      poster.rotation.z=rotation;
+      doorway.add(poster);
     });
   }
-  hangPoster(left-1.42,2.78,.095,'https://image.tmdb.org/t/p/w500/gh4cZbhZxyTbgxQPxD0dOudNPTn.jpg');
-  hangPoster(right+1.35,3.16,-.075,'https://image.tmdb.org/t/p/w500/d5NXSklXo0qyIYkgV94XAgMIckC.jpg');
+  hangPoster(left-2.22,2.83,.085,1.14,'assets/entry-poster-1.webp');
+  hangPoster(left-.81,3.27,-.072,1.20,'assets/entry-poster-2.webp');
+  hangPoster(right+1.42,3.07,-.084,1.65,'assets/entry-poster-3.webp');
 
   const alcoveHalfWidth=4.65,alcoveDepth=5.2,ceilingHeight=6.25;
   box(doorway,alcoveHalfWidth*2,.18,alcoveDepth,doorX,ceilingHeight+.09,doorZ+alcoveDepth/2,wallMat,false);
